@@ -1,0 +1,55 @@
+flowchart LR
+    subgraph SENSORES["Sensores e Entrada de Dados"]
+        S1["GPS Alta Precisão / Bússola / Giroscópio"]
+        S2["Microfone e Reconhecimento de Voz"]
+        S3["Câmera do Smartphone"]
+        S4["Beacons Bluetooth / IoT Urbanos"]
+    end
+
+    subgraph FRONTEND["Front-end"]
+        F1["App Mobile Acessível (React Native/Flutter + TalkBack/VoiceOver)"]
+        F2["Painel Web Prefeitura e Postos de Apoio"]
+    end
+
+    subgraph BACKEND["Back-end"]
+        B1["API Gateway & Core (FastAPI / Spring Boot)"]
+        B2["Motor de Roteamento Acessível (Grafos Multicritério)"]
+        B3["Serviço de Matching (Voluntários e Postos)"]
+    end
+
+    subgraph DB["Banco de Dados"]
+        D1[("PostgreSQL + PostGIS")]
+        D2[("Redis Cache")]
+        D3[("SQLite Local Offline")]
+    end
+
+    subgraph IA["Inteligência Artificial e ML"]
+        I1["Visão Computacional (Detecção de Barreiras)"]
+        I2["Modelo de Risco e Priorização de Rota"]
+    end
+
+    subgraph APIS["APIs Externas"]
+        A1["OpenStreetMap / Google Maps"]
+        A2["API Prefeitura / Portal 156 / CRAS"]
+        A3["Gov.br (Validação de Voluntários)"]
+        A4["Twilio / Push Notifications"]
+    end
+
+    subgraph CLOUD["Serviços em Nuvem (AWS)"]
+        C1["AWS EC2 / ECS"]
+        C2["AWS S3 (Mídias e Documentos)"]
+    end
+
+    subgraph ALERTAS["Sistema de Alertas"]
+        AL1["Alertas Sonoros (TTS) e Hápticos"]
+        AL2["Notificação de Pareamento e Botão SOS"]
+    end
+
+    SENSORES --> FRONTEND
+    FRONTEND <--> BACKEND
+    BACKEND <--> DB
+    BACKEND <--> IA
+    BACKEND <--> APIS
+    BACKEND <--> CLOUD
+    BACKEND --> ALERTAS
+    ALERTAS --> FRONTEND
