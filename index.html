@@ -3,38 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="RotaLivre CitizenTech Urbano: aplicativo de mobilidade urbana acessível para pessoas cegas e cadeirantes com comando por voz, navegação ao vivo e apoio municipal." />
+  <meta name="theme-color" content="#0f172a" />
   <title>RotaLivre – CitizenTech Urbano | Mobilidade Acessível</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root {
-      --bg-canvas: #070d19;
-      --glass-bg: rgba(15, 23, 42, 0.86);
-      --glass-card: rgba(30, 41, 59, 0.74);
-      --glass-border: rgba(148, 163, 184, 0.18);
+      --bg-canvas: #090f1d;
+      --surface: #0f172a;
+      --surface-card: #162033;
+      --border: rgba(148, 163, 184, 0.24);
       --text-main: #f8fafc;
-      --text-dim: #94a3b8;
-      --emerald: #10b981;
-      --emerald-glow: rgba(16, 185, 129, 0.35);
+      --text-dim: #cbd5e1; /* Contraste >= 7:1 (WCAG AAA) sobre #0f172a */
+      --emerald: #34d399;
+      --emerald-solid: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.32);
       --sky: #38bdf8;
-      --amber: #f59e0b;
-      --rose: #f43f5e;
+      --amber: #fbbf24;
+      --rose: #fb7185;
       --focus-ring: #fde047;
       --font-scale: 1;
     }
 
     body.high-contrast {
       --bg-canvas: #000000;
-      --glass-bg: #000000;
-      --glass-card: #0a0a0a;
-      --glass-border: #ffffff;
+      --surface: #000000;
+      --surface-card: #0a0a0a;
+      --border: #ffffff;
       --text-main: #ffffff;
       --text-dim: #fde047;
       --emerald: #fde047;
-      --emerald-glow: rgba(253, 224, 71, 0.45);
+      --emerald-solid: #fde047;
       --sky: #00ffff;
     }
 
@@ -48,21 +51,35 @@
     body.large-text { --font-scale: 1.12; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { font-size: calc(16px * var(--font-scale)); }
+    html { font-size: calc(15px * var(--font-scale)); }
 
     body {
-      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg-canvas);
       color: var(--text-main);
       height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
-      position: relative;
     }
 
-    *:focus-visible {
-      outline: 3px solid var(--focus-ring);
-      outline-offset: 2px;
+    *:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+
+    /* Skip Link para leitores de tela (TalkBack / VoiceOver / teclado) */
+    .skip-link {
+      position: absolute;
+      top: -100px;
+      left: 12px;
+      background: var(--focus-ring);
+      color: #000000;
+      font-weight: 800;
+      padding: 10px 14px;
+      border-radius: 10px;
+      z-index: 4000;
+      text-decoration: none;
     }
+    .skip-link:focus { top: 12px; }
 
     .sr-only {
       position: absolute;
@@ -76,1522 +93,1590 @@
       border: 0;
     }
 
-    /* Fullscreen Map Canvas */
-    #map {
-      position: absolute;
+    /* =======================================================
+       TELA INICIAL DO APP: ENTRAR / CADASTRAR
+       ======================================================= */
+    .auth-gate {
+      position: fixed;
       inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-    }
-
-    /* Floating Top Navbar */
-    .floating-header {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      right: 16px;
-      z-index: 1000;
+      z-index: 3000;
+      background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.16), transparent 45%),
+                  radial-gradient(circle at bottom left, rgba(56, 189, 248, 0.14), transparent 45%),
+                  #070d19;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      pointer-events: none;
+      justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+    }
+    .auth-gate.hidden { display: none; }
+
+    .auth-shell {
+      width: min(440px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 26px;
+      padding: 24px 20px;
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.72);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
     }
 
-    .brand-pill, .toolbar-pill {
-      pointer-events: auto;
-      background: var(--glass-bg);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border: 1px solid var(--glass-border);
+    .auth-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+    }
+
+    .auth-app-icon {
+      width: 60px;
+      height: 60px;
       border-radius: 18px;
-      padding: 0.6rem 0.95rem;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-      display: flex;
-      align-items: center;
-      gap: 0.65rem;
-      flex-wrap: wrap;
-    }
-
-    .logo-badge {
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
       background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
       display: grid;
       place-items: center;
       font-weight: 800;
-      color: #042f2e;
-      font-size: 1rem;
-      box-shadow: 0 4px 14px var(--emerald-glow);
+      font-size: 1.5rem;
+      color: #022c22;
+      box-shadow: 0 10px 26px var(--emerald-glow);
     }
 
-    .brand-info h1 {
-      font-size: 1.05rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      line-height: 1.1;
+    .auth-hero h1 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; }
+    .auth-hero p { font-size: 0.82rem; color: var(--text-dim); line-height: 1.45; max-width: 340px; }
+
+    .auth-pills { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      background: var(--surface-card);
+      padding: 5px;
+      border-radius: 13px;
+      border: 1px solid var(--border);
     }
 
-    .brand-info p {
-      font-size: 0.74rem;
+    .auth-tab {
+      background: transparent;
+      border: none;
       color: var(--text-dim);
-      margin-top: 2px;
+      min-height: 44px; /* Alvo de toque mínimo Lighthouse/WCAG (44x44px) */
+      padding: 9px;
+      border-radius: 9px;
+      font-weight: 700;
+      font-size: 0.86rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: 0.2s;
     }
+    .auth-tab.active { background: var(--emerald-solid); color: #022c22; font-weight: 800; }
+
+    .form-stack { display: flex; flex-direction: column; gap: 10px; }
+    .form-stack label { font-size: 0.78rem; font-weight: 700; color: var(--text-dim); margin-bottom: -4px; }
+
+    .auth-divider { display: flex; align-items: center; gap: 10px; font-size: 0.74rem; color: var(--text-dim); }
+    .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+    .btn-govbr {
+      width: 100%;
+      min-height: 46px;
+      background: #1351b4;
+      color: #ffffff;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-family: inherit;
+      font-size: 0.86rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* =======================================================
+       CONTAINER DO APP PRINCIPAL
+       ======================================================= */
+    #appContainer { display: none; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+    #appContainer.unlocked { display: flex; }
+
+    .offline-banner {
+      display: none;
+      background: #92400e;
+      color: #fffbeb;
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      z-index: 1200;
+    }
+    .offline-banner.visible { display: block; }
+
+    .top-header {
+      flex-shrink: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+      z-index: 1100;
+    }
+
+    .brand-group { display: flex; align-items: center; gap: 0.65rem; }
+    .logo-badge {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
+      display: grid; place-items: center; font-weight: 800; color: #022c22; font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+    .brand-info h1 { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+    .brand-info p { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
 
     .live-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--emerald);
-      margin-right: 5px;
-      box-shadow: 0 0 8px var(--emerald);
+      display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--emerald-solid); margin-right: 5px;
       animation: pulse 2s infinite;
     }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(1.25); } }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.25); }
-    }
+    .toolbar-group { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 
     .toolbar-btn {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--glass-border);
+      background: var(--surface-card);
+      border: 1px solid var(--border);
       color: var(--text-main);
-      padding: 0.5rem 0.8rem;
-      border-radius: 12px;
+      min-height: 40px;
+      padding: 0.44rem 0.72rem;
+      border-radius: 10px;
       font-family: inherit;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 600;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      transition: all 0.2s ease;
+      gap: 0.35rem;
+      transition: 0.2s;
       text-decoration: none;
     }
+    .toolbar-btn:hover { border-color: var(--emerald); background: rgba(16, 185, 129, 0.14); }
+    .toolbar-btn.active { background: var(--emerald-solid); color: #022c22; border-color: var(--emerald-solid); font-weight: 800; }
 
-    .toolbar-btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: var(--emerald);
-      transform: translateY(-1px);
-    }
-
-    .toolbar-btn.active {
-      background: var(--emerald);
-      color: #042f2e;
-      border-color: var(--emerald);
-      font-weight: 700;
-    }
-
-    /* Botão Principal de Microfone (Fase 1) */
-    .mic-btn {
-      background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    .btn-sos {
+      background: #be123c;
       color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 0.52rem 0.95rem;
-      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      min-height: 40px;
+      padding: 0.44rem 0.85rem;
+      border-radius: 10px;
       font-family: inherit;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .mic-btn {
+      background: #1d4ed8;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      min-height: 40px;
+      padding: 0.44rem 0.8rem;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 0.76rem;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
-      box-shadow: 0 6px 18px rgba(14, 165, 233, 0.35);
-      transition: all 0.2s ease;
+      gap: 0.35rem;
     }
+    .mic-btn.listening { background: #be123c; animation: micPulse 1.3s infinite; }
+    .mic-btn.speaking { background: #d97706; color: #000000; font-weight: 800; }
+    @keyframes micPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.55); } 50% { box-shadow: 0 0 0 8px rgba(225, 29, 72, 0); } }
 
-    .mic-btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    .kbd-tag { font-size: 0.65rem; font-weight: 700; background: rgba(0, 0, 0, 0.38); padding: 2px 5px; border-radius: 5px; }
 
-    .mic-btn.listening {
-      background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-      box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.3), 0 8px 22px rgba(244, 63, 94, 0.5);
-      animation: micPulse 1.3s infinite;
-    }
+    .app-workspace { flex: 1; display: flex; min-height: 0; position: relative; }
 
-    .mic-btn.speaking {
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      color: #111827;
-    }
-
-    @keyframes micPulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.55); }
-      50% { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); }
-    }
-
-    .kbd-tag {
-      font-size: 0.66rem;
-      font-weight: 700;
-      background: rgba(0, 0, 0, 0.32);
-      padding: 2px 6px;
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    /* Barra Flutuante de Transcrição ao Vivo (aria-live) */
-    .voice-live-bar {
-      position: absolute;
-      top: 84px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1050;
-      width: min(560px, calc(100vw - 32px));
-      background: var(--glass-bg);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1.5px solid var(--sky);
-      border-radius: 18px;
-      padding: 12px 16px;
-      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55);
-      display: none;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .voice-live-bar.visible { display: flex; }
-    .voice-live-bar.error { border-color: var(--rose); }
-    .voice-live-bar.listening { border-color: var(--emerald); }
-
-    .voice-bar-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .voice-status-wrap {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 0.8rem;
-      font-weight: 700;
-    }
-
-    .wave-bars {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      height: 16px;
-    }
-
-    .wave-bars span {
-      width: 3px;
-      height: 6px;
-      border-radius: 99px;
-      background: var(--emerald);
-      animation: wave 0.9s ease-in-out infinite;
-    }
-    .wave-bars span:nth-child(2) { animation-delay: 0.15s; }
-    .wave-bars span:nth-child(3) { animation-delay: 0.3s; }
-    .wave-bars span:nth-child(4) { animation-delay: 0.45s; }
-    .wave-bars.paused span { animation: none; height: 4px; background: var(--text-dim); }
-
-    @keyframes wave {
-      0%, 100% { height: 5px; }
-      50% { height: 16px; }
-    }
-
-    .voice-transcript {
-      font-size: 0.92rem;
-      font-weight: 600;
-      color: var(--text-main);
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid var(--glass-border);
-      border-radius: 10px;
-      padding: 8px 12px;
-      min-height: 38px;
-      display: flex;
-      align-items: center;
-    }
-
-    .voice-privacy-note {
-      font-size: 0.7rem;
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    /* Floating Left Control Dock */
-    .control-dock {
-      position: absolute;
-      top: 86px;
-      left: 16px;
-      bottom: 16px;
+    .sidebar {
       width: 420px;
-      max-width: calc(100vw - 32px);
-      z-index: 950;
-      background: var(--glass-bg);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border);
-      border-radius: 22px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      max-width: 100%;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      z-index: 900;
     }
 
     .dock-tabs {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-      padding: 12px 12px 0;
-    }
-
-    .tab-btn {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid transparent;
-      color: var(--text-dim);
-      padding: 0.62rem 0.5rem;
-      border-radius: 12px;
-      font-family: inherit;
-      font-size: 0.78rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.35rem;
-    }
-
-    .tab-btn:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.08); }
-    .tab-btn.active {
-      background: var(--emerald);
-      color: #042f2e;
-      box-shadow: 0 4px 14px var(--emerald-glow);
-    }
-
-    .dock-body {
-      padding: 14px;
-      overflow-y: auto;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .dock-body::-webkit-scrollbar { width: 6px; }
-    .dock-body::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 99px; }
-
-    .tab-panel { display: none; flex-direction: column; gap: 12px; }
-    .tab-panel.active { display: flex; }
-
-    .glass-section {
-      background: var(--glass-card);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 14px;
-    }
-
-    .section-label {
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--text-dim);
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .profile-selector {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .profile-option {
-      background: rgba(15, 23, 42, 0.65);
-      border: 1.5px solid var(--glass-border);
-      border-radius: 14px;
-      padding: 10px;
-      text-align: left;
-      color: var(--text-main);
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .profile-option:hover { border-color: var(--sky); }
-    .profile-option.selected {
-      border-color: var(--emerald);
-      background: rgba(16, 185, 129, 0.14);
-      box-shadow: 0 0 0 1px var(--emerald);
-    }
-
-    .profile-option .icon { font-size: 1.35rem; display: block; margin-bottom: 4px; }
-    .profile-option strong { font-size: 0.88rem; display: block; }
-    .profile-option span { font-size: 0.72rem; color: var(--text-dim); display: block; margin-top: 2px; line-height: 1.25; }
-
-    .route-points { display: flex; flex-direction: column; gap: 8px; }
-    .point-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(15, 23, 42, 0.75);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      padding: 8px 10px;
-      font-size: 0.8rem;
-    }
-
-    .point-badge {
-      width: 24px;
-      height: 24px;
-      border-radius: 8px;
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-      font-size: 0.72rem;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      padding: 10px 10px 9px;
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
 
-    select, input, textarea {
-      width: 100%;
-      background: rgba(15, 23, 42, 0.85);
-      border: 1px solid var(--glass-border);
-      color: var(--text-main);
-      border-radius: 12px;
-      padding: 10px 12px;
+    .tab-btn {
+      background: var(--surface-card);
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      min-height: 42px;
+      padding: 0.5rem 0.3rem;
+      border-radius: 10px;
       font-family: inherit;
-      font-size: 0.84rem;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+    }
+    .tab-btn:hover { color: var(--text-main); border-color: var(--border); }
+    .tab-btn.active { background: var(--emerald-solid); color: #022c22; font-weight: 800; }
+
+    .dock-body { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 11px; }
+    .dock-body::-webkit-scrollbar { width: 6px; }
+    .dock-body::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 99px; }
+
+    .tab-panel { display: none; flex-direction: column; gap: 11px; }
+    .tab-panel.active { display: flex; }
+
+    .card { background: var(--surface-card); border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .section-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+
+    .profile-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .profile-option { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 10px; text-align: left; color: var(--text-main); cursor: pointer; transition: 0.2s; min-height: 76px; }
+    .profile-option.selected { border-color: var(--emerald-solid); background: rgba(16, 185, 129, 0.14); }
+    .profile-option .icon { font-size: 1.2rem; display: block; margin-bottom: 3px; }
+    .profile-option strong { font-size: 0.84rem; display: block; }
+    .profile-option span { font-size: 0.7rem; color: var(--text-dim); display: block; margin-top: 2px; line-height: 1.3; }
+
+    .route-points { display: flex; flex-direction: column; gap: 6px; margin-bottom: 9px; }
+    .point-row { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px; font-size: 0.76rem; }
+    .point-badge { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-weight: 800; font-size: 0.7rem; flex-shrink: 0; }
+
+    select, input, textarea {
+      width: 100%; min-height: 42px; background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-main); border-radius: 10px; padding: 9px 11px;
+      font-family: inherit; font-size: 0.82rem;
     }
 
     .btn-primary {
-      width: 100%;
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: #042f2e;
-      border: none;
-      border-radius: 14px;
-      padding: 12px 16px;
-      font-family: inherit;
-      font-size: 0.9rem;
-      font-weight: 800;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      box-shadow: 0 8px 20px var(--emerald-glow);
-      transition: all 0.2s ease;
-    }
-
-    .btn-primary:hover { transform: translateY(-1px); filter: brightness(1.06); }
-
-    .btn-voice-input {
-      background: rgba(56, 189, 248, 0.14);
-      border: 1px solid var(--sky);
-      color: var(--sky);
-      border-radius: 12px;
-      padding: 9px 12px;
-      font-family: inherit;
-      font-size: 0.8rem;
-      font-weight: 700;
-      cursor: pointer;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
+      width: 100%; min-height: 44px; background: var(--emerald-solid);
+      color: #022c22; border: none; border-radius: 11px; padding: 11px 14px;
+      font-family: inherit; font-size: 0.86rem; font-weight: 800; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
       transition: 0.2s;
     }
+    .btn-primary:hover { filter: brightness(1.06); transform: translateY(-1px); }
 
-    .btn-voice-input:hover { background: rgba(56, 189, 248, 0.24); }
-
-    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .kpi-tile {
-      background: rgba(15, 23, 42, 0.75);
-      border: 1px solid var(--glass-border);
-      border-radius: 14px;
-      padding: 10px 8px;
-      text-align: center;
+    .btn-live-start {
+      width: 100%; min-height: 44px; margin-top: 7px; background: #0284c7;
+      color: #ffffff; border: none; border-radius: 11px; padding: 10px 14px;
+      font-family: inherit; font-size: 0.85rem; font-weight: 800; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
     }
-    .kpi-tile strong { display: block; font-size: 1.05rem; font-weight: 800; color: var(--emerald); }
-    .kpi-tile small { font-size: 0.68rem; color: var(--text-dim); display: block; margin-top: 2px; }
+
+    .btn-secondary {
+      width: 100%; min-height: 42px; background: rgba(56, 189, 248, 0.14); border: 1px solid var(--sky);
+      color: var(--sky); border-radius: 10px; padding: 8px 12px;
+      font-family: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 9px; }
+    .kpi-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 7px 5px; text-align: center; }
+    .kpi-tile strong { display: block; font-size: 0.92rem; font-weight: 800; color: var(--emerald); }
+    .kpi-tile small { font-size: 0.66rem; color: var(--text-dim); display: block; margin-top: 2px; }
 
     .step-card {
-      background: rgba(15, 23, 42, 0.72);
-      border: 1px solid var(--glass-border);
-      border-left: 4px solid var(--emerald);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-size: 0.82rem;
-      line-height: 1.42;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--emerald-solid);
+      border-radius: 10px; padding: 9px 10px; font-size: 0.79rem; line-height: 1.42;
+      display: flex; flex-direction: column; gap: 5px;
     }
 
-    .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
-    .chip {
-      font-size: 0.68rem;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 99px;
-      background: rgba(16, 185, 129, 0.16);
-      color: var(--emerald);
-    }
-    .chip.sky { background: rgba(56, 189, 248, 0.16); color: var(--sky); }
-    .chip.amber { background: rgba(245, 158, 11, 0.16); color: var(--amber); }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+    .chip { font-size: 0.66rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgba(16, 185, 129, 0.18); color: var(--emerald); }
+    .chip.sky { background: rgba(56, 189, 248, 0.18); color: var(--sky); }
+    .chip.amber { background: rgba(251, 191, 36, 0.18); color: var(--amber); }
 
-    .posto-card {
-      background: rgba(15, 23, 42, 0.75);
-      border: 1px solid var(--glass-border);
-      border-radius: 14px;
-      padding: 11px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .posto-card h4 { font-size: 0.84rem; font-weight: 700; }
-    .posto-card p { font-size: 0.73rem; color: var(--text-dim); margin-top: 2px; }
+    .posto-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .posto-card h4 { font-size: 0.8rem; font-weight: 700; }
+    .posto-card p { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+    .mini-btn { background: #0284c7; color: #ffffff; border: none; border-radius: 8px; min-height: 36px; padding: 6px 10px; font-weight: 700; font-size: 0.72rem; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; }
+    .mini-btn.danger { background: rgba(244, 63, 94, 0.24); color: #fecdd3; border: 1px solid var(--rose); }
+    .mini-btn.success { background: rgba(16, 185, 129, 0.24); color: var(--emerald); border: 1px solid var(--emerald-solid); }
 
-    .mini-btn {
-      background: var(--sky);
-      color: #082f49;
-      border: none;
-      border-radius: 10px;
-      padding: 7px 11px;
-      font-weight: 800;
-      font-size: 0.74rem;
-      cursor: pointer;
-      white-space: nowrap;
-    }
+    .alert-box { background: rgba(16, 185, 129, 0.14); border: 1px solid var(--emerald-solid); border-radius: 11px; padding: 10px; font-size: 0.79rem; line-height: 1.45; }
 
-    .alert-box {
-      background: rgba(16, 185, 129, 0.14);
-      border: 1px solid var(--emerald);
-      border-radius: 14px;
-      padding: 12px;
-      font-size: 0.82rem;
-      line-height: 1.45;
+    .photo-preview-box {
+      display: none; margin-top: 6px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px; flex-direction: column; gap: 6px;
+    }
+    .photo-preview-box.visible { display: flex; }
+    .photo-preview-box img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 8px; }
+
+    /* =======================================================
+       MAPA & OVERLAYS
+       ======================================================= */
+    .map-stage {
+      flex: 1;
+      position: relative;
+      min-width: 0;
+      min-height: 320px;
+      background-color: #0b1324;
+      background-image:
+        linear-gradient(rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(16, 185, 129, 0.05) 2px, transparent 2px),
+        linear-gradient(90deg, rgba(16, 185, 129, 0.05) 2px, transparent 2px);
+      background-size: 36px 36px, 36px 36px, 144px 144px, 144px 144px;
     }
 
-    /* Modal "O que posso dizer?" */
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(2, 6, 23, 0.75);
-      backdrop-filter: blur(8px);
-      z-index: 2000;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
+    #map { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent !important; }
+    .leaflet-container { background: transparent !important; }
+
+    .voice-live-bar {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      z-index: 1050; width: min(500px, calc(100% - 28px));
+      background: rgba(15, 23, 42, 0.96); backdrop-filter: blur(16px);
+      border: 1.5px solid var(--sky); border-radius: 16px; padding: 11px 14px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55); display: none; flex-direction: column; gap: 7px;
+    }
+    .voice-live-bar.visible { display: flex; }
+    .voice-live-bar.error { border-color: var(--rose); }
+    .voice-live-bar.listening { border-color: var(--emerald-solid); }
+    .voice-bar-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .voice-status-wrap { display: flex; align-items: center; gap: 9px; font-size: 0.78rem; font-weight: 700; }
+    .wave-bars { display: inline-flex; align-items: center; gap: 3px; height: 14px; }
+    .wave-bars span { width: 3px; height: 5px; border-radius: 99px; background: var(--emerald-solid); animation: wave 0.9s ease-in-out infinite; }
+    .wave-bars span:nth-child(2) { animation-delay: 0.15s; }
+    .wave-bars span:nth-child(3) { animation-delay: 0.3s; }
+    .wave-bars span:nth-child(4) { animation-delay: 0.45s; }
+    .wave-bars.paused span { animation: none; height: 4px; background: var(--text-dim); }
+    @keyframes wave { 0%, 100% { height: 5px; } 50% { height: 14px; } }
+    .voice-transcript { font-size: 0.86rem; font-weight: 600; background: var(--surface-card); border: 1px solid var(--border); border-radius: 9px; padding: 7px 10px; }
+
+    .live-nav-hud {
+      position: absolute; top: 14px; right: 14px; z-index: 1020;
+      width: min(400px, calc(100% - 28px)); background: rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(18px); border: 2px solid var(--emerald-solid); border-radius: 18px;
+      padding: 15px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      display: none; flex-direction: column; gap: 10px;
+    }
+    .live-nav-hud.active { display: flex; }
+    .live-nav-hud.paused { border-color: var(--amber); }
+    .live-nav-hud.haptic-flash { animation: hapticShake 0.4s ease; }
+    @keyframes hapticShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+    .nav-hud-header { display: flex; align-items: center; justify-content: space-between; }
+    .nav-badge-live { display: inline-flex; align-items: center; gap: 6px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 99px; background: rgba(16, 185, 129, 0.2); color: var(--emerald); }
+    .nav-next-step-box { background: var(--surface-card); border: 1px solid var(--border); border-left: 5px solid var(--emerald-solid); border-radius: 13px; padding: 12px; display: flex; flex-direction: column; gap: 5px; }
+    .nav-step-kicker { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--sky); }
+    .nav-step-big { font-size: 1.15rem; font-weight: 800; line-height: 1.32; }
+    .nav-metrics-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .nav-metric-pill { background: var(--surface-card); border: 1px solid var(--border); border-radius: 11px; padding: 8px; text-align: center; }
+    .nav-metric-pill strong { display: block; font-size: 1.22rem; font-weight: 800; color: var(--emerald); }
+    .nav-metric-pill small { font-size: 0.68rem; color: var(--text-dim); }
+    .nav-progress-track { width: 100%; height: 6px; border-radius: 99px; background: rgba(148, 163, 184, 0.2); overflow: hidden; }
+    .nav-progress-fill { height: 100%; width: 10%; background: linear-gradient(90deg, #10b981, #38bdf8); transition: width 0.35s ease; }
+    .barrier-warning-banner { display: none; background: rgba(225, 29, 72, 0.25); border: 2px solid var(--rose); border-radius: 11px; padding: 9px 11px; font-size: 0.8rem; font-weight: 700; color: #ffe4e6; }
+    .barrier-warning-banner.visible { display: block; }
+    .nav-controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-nav-pause { background: rgba(245, 158, 11, 0.18); border: 1.5px solid var(--amber); color: var(--amber); border-radius: 11px; min-height: 42px; padding: 9px; font-weight: 800; cursor: pointer; }
+    .btn-nav-stop { background: rgba(225, 29, 72, 0.24); border: 1.5px solid var(--rose); color: #fecdd3; border-radius: 11px; min-height: 42px; padding: 9px; font-weight: 800; cursor: pointer; }
+    .nav-gps-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 0.72rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 8px; flex-wrap: wrap; }
+
+    .map-style-switcher {
+      position: absolute; top: 14px; left: 14px; z-index: 900;
+      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(12px);
+      border: 1px solid var(--border); border-radius: 12px; padding: 5px;
+      display: flex; gap: 4px;
     }
 
-    .modal-backdrop.open { display: flex; }
-
-    .modal-card {
-      width: min(560px, 100%);
-      max-height: 88vh;
-      overflow-y: auto;
-      background: #0f172a;
-      border: 1px solid var(--glass-border);
-      border-radius: 22px;
-      padding: 20px;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .cmd-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    @media (max-width: 560px) {
-      .cmd-grid { grid-template-columns: 1fr; }
-    }
-
-    .cmd-chip-btn {
-      background: rgba(30, 41, 59, 0.85);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      padding: 10px 12px;
-      text-align: left;
-      color: var(--text-main);
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    .cmd-chip-btn:hover {
-      border-color: var(--emerald);
-      background: rgba(16, 185, 129, 0.14);
-    }
-
-    .cmd-chip-btn strong { display: block; font-size: 0.82rem; color: var(--emerald); }
-    .cmd-chip-btn span { display: block; font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
-
-    .privacy-box {
-      background: rgba(56, 189, 248, 0.1);
-      border: 1px solid rgba(56, 189, 248, 0.35);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      line-height: 1.45;
-    }
-
-    /* Floating Bottom-Right Legend */
     .floating-legend {
-      position: absolute;
-      bottom: 20px;
-      right: 16px;
-      z-index: 900;
-      background: var(--glass-bg);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 10px 14px;
-      font-size: 0.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+      position: absolute; bottom: 24px; right: 14px; z-index: 900;
+      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(12px);
+      border: 1px solid var(--border); border-radius: 13px; padding: 8px 12px;
+      font-size: 0.72rem; display: flex; flex-direction: column; gap: 4px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 7px; }
+    .swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Modais */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(2, 6, 23, 0.8);
+      backdrop-filter: blur(8px); z-index: 2000; display: none;
+      align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-card {
+      width: min(520px, 100%); max-height: 90vh; overflow-y: auto;
+      background: #0f172a; border: 1px solid var(--border); border-radius: 20px;
+      padding: 18px; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+    }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .cmd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .cmd-chip-btn { background: var(--surface-card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 11px; text-align: left; color: var(--text-main); cursor: pointer; min-height: 54px; }
+    .cmd-chip-btn:hover { border-color: var(--emerald-solid); }
+    .cmd-chip-btn strong { display: block; font-size: 0.78rem; color: var(--emerald); }
+    .cmd-chip-btn span { display: block; font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
+    .privacy-box { background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 10px; padding: 10px; font-size: 0.75rem; color: var(--text-dim); line-height: 1.45; }
+
+    .lgpd-consent-bar {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 2500; width: min(740px, calc(100vw - 24px));
+      background: #0f172a; border: 1.5px solid var(--sky); border-radius: 16px;
+      padding: 13px 16px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
+      display: none; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    }
+    .lgpd-consent-bar.visible { display: flex; }
+
+    /* =======================================================
+       FASE 5: RESPONSIVIDADE PARA CELULARES PEQUENOS (<= 480px)
+       ======================================================= */
+    @media (max-width: 860px) {
+      .app-workspace { flex-direction: column-reverse; }
+      .sidebar { width: 100%; height: 52vh; border-right: none; border-top: 1px solid var(--border); }
+      .floating-legend { display: none; }
     }
 
-    .legend-item { display: flex; align-items: center; gap: 8px; }
-    .swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-
-    @media (max-width: 768px) {
-      .control-dock {
-        top: auto;
-        left: 10px;
-        right: 10px;
-        bottom: 10px;
-        width: auto;
-        height: 52vh;
-      }
-      .floating-legend { display: none; }
+    @media (max-width: 480px) {
+      .top-header { padding: 0.5rem 0.65rem; gap: 0.45rem; }
+      .brand-info p { display: none; }
+      .toolbar-group { width: 100%; justify-content: space-between; gap: 0.3rem; }
+      .toolbar-btn, .mic-btn, .btn-sos { padding: 0.4rem 0.55rem; font-size: 0.72rem; }
+      .kbd-tag { display: none; }
+      .profile-selector, .cmd-grid { grid-template-columns: 1fr; }
+      .auth-shell { padding: 18px 14px; border-radius: 20px; }
+      .live-nav-hud { top: 8px; left: 8px; right: 8px; width: auto; padding: 12px; }
+      .nav-step-big { font-size: 1.05rem; }
     }
   </style>
 </head>
 <body>
-  <!-- Mapa Fullscreen -->
-  <div id="map" role="region" aria-label="Mapa urbano interativo de rotas acessíveis"></div>
+  <!-- Atalho de Acessibilidade para Leitores de Tela (TalkBack / VoiceOver) -->
+  <a href="#mainWorkspace" class="skip-link">Pular para o conteúdo principal</a>
 
-  <!-- Barra Superior Flutuante -->
-  <header class="floating-header">
-    <div class="brand-pill">
-      <div class="logo-badge" aria-hidden="true">RL</div>
-      <div class="brand-info">
+  <!-- =======================================================
+       TELA INICIAL DO APP: ENTRAR / CADASTRAR
+       ======================================================= -->
+  <section id="authGateScreen" class="auth-gate" aria-label="Tela inicial de acesso ao aplicativo RotaLivre">
+    <div class="auth-shell">
+      <div class="auth-hero">
+        <div class="auth-app-icon" aria-hidden="true">RL</div>
         <h1>RotaLivre <span style="color:var(--emerald)">CitizenTech</span></h1>
-        <p><span class="live-dot"></span>OpenStreetMap + OSRM • Comando por Voz (Fase 1)</p>
-      </div>
-    </div>
-
-    <div class="toolbar-pill">
-      <!-- 1. Botão de microfone acessível com atalho -->
-      <button
-        class="mic-btn"
-        id="btnMicPrincipal"
-        onclick="alternarMicrofone()"
-        aria-pressed="false"
-        aria-label="Ativar comando por voz. Atalho de teclado Alt mais M."
-        title="Ativar ou pausar comando por voz (Atalho: Alt+M)"
-      >
-        <span id="micIcon" aria-hidden="true">🎙️</span>
-        <span id="micLabel">Comando de Voz</span>
-        <span class="kbd-tag" aria-hidden="true">Alt+M</span>
-      </button>
-
-      <!-- 5. Botão para abrir Tela "O que posso dizer?" -->
-      <button
-        class="toolbar-btn"
-        id="btnAjudaVoz"
-        onclick="abrirModalAjuda()"
-        aria-haspopup="dialog"
-        aria-controls="modalAjudaVoz"
-      >
-        💬 O que posso dizer?
-      </button>
-
-      <button class="toolbar-btn" id="btnContrast" onclick="toggleContrast()" aria-pressed="false">
-        ◐ Contraste
-      </button>
-      <button class="toolbar-btn" id="btnFont" onclick="toggleFontSize()" aria-pressed="false">
-        A+ Fonte
-      </button>
-      <button class="toolbar-btn" onclick="lerRotaEmVozAlta()">
-        🔊 Ouvir Guia
-      </button>
-      <a href="/docs" target="_blank" class="toolbar-btn">⚡ API</a>
-    </div>
-  </header>
-
-  <!-- 2. Indicador Visual e Transcrição ao Vivo (aria-live) + 6. Erros e Privacidade -->
-  <section
-    id="voiceLiveBar"
-    class="voice-live-bar"
-    role="region"
-    aria-label="Status e transcrição do comando por voz"
-  >
-    <div class="voice-bar-top">
-      <div class="voice-status-wrap">
-        <div id="waveBars" class="wave-bars paused" aria-hidden="true">
-          <span></span><span></span><span></span><span></span>
+        <p>Mobilidade urbana acessível para pessoas cegas e cadeirantes, com guia por voz e rede de apoio municipal.</p>
+        <div class="auth-pills">
+          <span class="chip">🦯 Piso Tátil e Voz</span>
+          <span class="chip sky">♿ NBR 9050</span>
+          <span class="chip amber">🏛️ Portal 156</span>
         </div>
-        <span id="voiceStatusText">Microfone pronto</span>
       </div>
-      <button
-        type="button"
-        class="toolbar-btn"
-        style="padding:4px 10px;font-size:0.72rem"
-        onclick="fecharBarraVoz()"
-        aria-label="Fechar painel de transcrição de voz"
-      >
-        ✕ Fechar
-      </button>
-    </div>
 
-    <div
-      id="voiceTranscript"
-      class="voice-transcript"
-      role="status"
-      aria-live="assertive"
-      aria-atomic="true"
-    >
-      Pressione Alt+M ou clique em "Comando de Voz" para falar um comando.
-    </div>
+      <div class="auth-tabs" role="tablist" aria-label="Opções de acesso">
+        <button type="button" class="auth-tab active" id="authTabLogin" role="tab" aria-selected="true" aria-controls="formLogin" onclick="alternarAbaAuth('login')">
+          Entrar
+        </button>
+        <button type="button" class="auth-tab" id="authTabCadastro" role="tab" aria-selected="false" aria-controls="formCadastro" onclick="alternarAbaAuth('cadastro')">
+          Cadastrar
+        </button>
+      </div>
 
-    <div class="voice-privacy-note">
-      <span>🔒 Privacidade (LGPD): o áudio é processado apenas para reconhecer comandos e não é gravado nem armazenado.</span>
-      <button
-        type="button"
-        style="background:none;border:none;color:var(--sky);font-weight:700;cursor:pointer;font-size:0.72rem;text-decoration:underline"
-        onclick="abrirModalAjuda()"
-      >
-        Ver comandos aceitos
+      <!-- Formulário Entrar -->
+      <form id="formLogin" class="form-stack" onsubmit="realizarLogin(event)">
+        <label for="loginEmail">E-mail ou CPF</label>
+        <input type="text" id="loginEmail" autocomplete="username" required placeholder="natalia@exemplo.com" />
+
+        <label for="loginSenha">Senha</label>
+        <input type="password" id="loginSenha" autocomplete="current-password" required placeholder="••••••••" />
+
+        <button type="submit" class="btn-primary">🔓 Entrar no Aplicativo</button>
+      </form>
+
+      <!-- Formulário Cadastrar -->
+      <form id="formCadastro" class="form-stack" style="display:none" onsubmit="realizarCadastro(event)">
+        <label for="cadNome">Nome completo</label>
+        <input type="text" id="cadNome" autocomplete="name" required placeholder="Ex.: Natalia Alcantara" />
+
+        <label for="cadEmail">E-mail</label>
+        <input type="email" id="cadEmail" autocomplete="email" required placeholder="seuemail@dominio.com" />
+
+        <label for="cadPerfil">Perfil principal de mobilidade</label>
+        <select id="cadPerfil">
+          <option value="cego">🦯 Pessoa cega ou com baixa visão</option>
+          <option value="cadeirante">♿ Cadeirante ou mobilidade reduzida</option>
+          <option value="voluntario">🤝 Voluntário ou apoiador urbano</option>
+        </select>
+
+        <label for="cadSenha">Criar senha</label>
+        <input type="password" id="cadSenha" autocomplete="new-password" required placeholder="Mínimo de 6 caracteres" />
+
+        <button type="submit" class="btn-primary">✅ Criar Conta e Acessar o App</button>
+      </form>
+
+      <div class="auth-divider">ou acesse com identidade cidadã</div>
+
+      <button type="button" class="btn-govbr" onclick="entrarComGovBr()">
+        🇧🇷 Entrar com Gov.br (Acesso Rápido)
       </button>
+
+      <p style="text-align:center;font-size:0.72rem;color:var(--text-dim);line-height:1.4">
+        🔒 Seus dados de localização e preferências são protegidos conforme a <strong>LGPD</strong>.
+      </p>
     </div>
   </section>
 
-  <!-- Painel Lateral Flutuante com Abas -->
-  <aside class="control-dock" aria-label="Painel de controle de mobilidade acessível">
-    <nav class="dock-tabs" role="tablist">
-      <button class="tab-btn active" id="tab-rota" role="tab" aria-selected="true" onclick="switchTab('rota', this)">
-        🧭 Rota Segura
-      </button>
-      <button class="tab-btn" id="tab-apoio" role="tab" aria-selected="false" onclick="switchTab('apoio', this)">
-        🤝 Apoio & Postos
-      </button>
-      <button class="tab-btn" id="tab-zeladoria" role="tab" aria-selected="false" onclick="switchTab('zeladoria', this)">
-        ⚠️ Portal 156
-      </button>
-    </nav>
+  <!-- =======================================================
+       APLICATIVO PRINCIPAL
+       ======================================================= -->
+  <div id="appContainer">
+    <div id="offlineBanner" class="offline-banner" role="alert" aria-live="assertive">
+      📡 Modo offline ativo — Rotas salvas, comandos de voz locais e contatos SOS continuam disponíveis.
+    </div>
 
-    <div class="dock-body">
-      <!-- ABA 1: ROTA SEGURA -->
-      <div class="tab-panel active" id="panel-rota">
-        <div class="glass-section">
-          <div class="section-label">
-            <span>1. Perfil de Acessibilidade</span>
-            <span style="color:var(--emerald)">NBR 9050</span>
-          </div>
-          <div class="profile-selector">
-            <button type="button" class="profile-option selected" id="perfilCego" onclick="selecionarPerfil('cego')">
-              <span class="icon">🦯</span>
-              <strong>Pessoa Cega</strong>
-              <span>Piso tátil contínuo, travessias sonoras e voz.</span>
-            </button>
-            <button type="button" class="profile-option" id="perfilCadeirante" onclick="selecionarPerfil('cadeirante')">
-              <span class="icon">♿</span>
-              <strong>Cadeirante</strong>
-              <span>Guias rebaixadas, sem degraus e rampa suave.</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="glass-section">
-          <div class="section-label">
-            <span>2. Origem e Destino</span>
-            <span style="color:var(--sky)">Arraste ou clique no mapa</span>
-          </div>
-
-          <div class="route-points" style="margin-bottom:10px">
-            <div class="point-row">
-              <span class="point-badge" style="background:rgba(16,185,129,0.2);color:var(--emerald)">A</span>
-              <span id="coordOrigemTexto">Estação Trianon-Masp (-23.5632, -46.6542)</span>
-            </div>
-            <div class="point-row">
-              <span class="point-badge" style="background:rgba(56,189,248,0.2);color:var(--sky)">B</span>
-              <span id="coordDestinoTexto">Hospital / Posto Apoio (-23.5579, -46.6518)</span>
-            </div>
-          </div>
-
-          <select id="presetTrajeto" onchange="aplicarPreset()" aria-label="Escolher trajeto de demonstração" style="margin-bottom:10px">
-            <option value="paulista">📍 Av. Paulista: Trianon-Masp → Hospital / CRAS</option>
-            <option value="se">📍 Centro Histórico: Metrô Sé → Subprefeitura Sé</option>
-            <option value="consolacao">📍 Consolação: Metrô Consolação → Parque Trianon</option>
-          </select>
-
-          <button class="btn-primary" onclick="calcularRotaAcessivel()">
-            🧭 Traçar Rota Acessível em Tempo Real
-          </button>
-        </div>
-
-        <div class="glass-section">
-          <div class="section-label">
-            <span>3. Diagnóstico da Calçada (OSM)</span>
-            <span id="fonteDadosTag" style="color:var(--emerald)">Tempo Real</span>
-          </div>
-          <div class="kpi-grid" style="margin-bottom:10px">
-            <div class="kpi-tile">
-              <strong id="metricIndice">--</strong>
-              <small>Score Acessível</small>
-            </div>
-            <div class="kpi-tile">
-              <strong id="metricDist">--</strong>
-              <small>Distância / Tempo</small>
-            </div>
-            <div class="kpi-tile">
-              <strong id="metricInfra">--</strong>
-              <small>Rampas & Piso Tátil</small>
-            </div>
-          </div>
-
-          <div id="listaPassos" style="display:flex;flex-direction:column;gap:8px">
-            <div class="step-card">Calculando infraestrutura acessível no OpenStreetMap...</div>
-          </div>
+    <header class="top-header">
+      <div class="brand-group">
+        <div class="logo-badge" aria-hidden="true">RL</div>
+        <div class="brand-info">
+          <h1>RotaLivre <span style="color:var(--emerald)">CitizenTech</span></h1>
+          <p><span class="live-dot" aria-hidden="true"></span>Mobilidade Acessível • Voz, GPS ao Vivo e Segurança</p>
         </div>
       </div>
 
-      <!-- ABA 2: APOIO HUMANO & POSTOS DA PREFEITURA -->
-      <div class="tab-panel" id="panel-apoio">
-        <div class="glass-section">
-          <div class="section-label">
-            <span>Acompanhamento Presencial</span>
-            <span style="color:var(--sky)">Verificado Gov.br</span>
-          </div>
-          <p style="font-size:0.8rem;color:var(--text-dim);line-height:1.4;margin-bottom:10px">
-            Precisa de apoio para atravessar um terminal, estação ou chegar a um serviço público? Conectamos você a um voluntário verificado ou agente da Prefeitura.
-          </p>
-          <button class="btn-primary" onclick="solicitarVoluntario()">
-            🤝 Chamar Voluntário / Agente Agora
-          </button>
-          <div id="resultadoVoluntario" style="margin-top:10px" role="status" aria-live="polite"></div>
+      <nav class="toolbar-group" aria-label="Ações rápidas e acessibilidade">
+        <button class="mic-btn" id="btnMicPrincipal" onclick="alternarMicrofone()" aria-pressed="false" aria-label="Ativar comando por voz. Atalho de teclado Alt mais M.">
+          <span aria-hidden="true">🎙️</span>
+          <span id="micLabel">Voz</span>
+          <span class="kbd-tag" aria-hidden="true">Alt+M</span>
+        </button>
+        <button class="toolbar-btn" onclick="abrirModal('modalAjudaVoz')" aria-haspopup="dialog" aria-controls="modalAjudaVoz">💬 Comandos</button>
+        <button class="toolbar-btn" onclick="abrirModal('modalInstalarApp')" aria-haspopup="dialog" aria-controls="modalInstalarApp">📲 Instalar</button>
+        <button class="btn-sos" onclick="abrirModal('modalSOS')" aria-haspopup="dialog" aria-controls="modalSOS" aria-label="Abrir tela SOS e contatos de confiança">🆘 SOS</button>
+        <button class="toolbar-btn" id="btnContrast" onclick="toggleContrast()" aria-pressed="false" aria-label="Alternar modo de alto contraste" title="Alto contraste">◐</button>
+        <button class="toolbar-btn" id="btnFont" onclick="toggleFontSize()" aria-pressed="false" aria-label="Aumentar tamanho do texto" title="Aumentar texto">A+</button>
+        <button class="toolbar-btn" id="btnSairApp" onclick="sairDoApp()" aria-label="Sair da conta atual">
+          👤 <span id="nomeUsuarioHeader">Conta</span> • Sair
+        </button>
+      </nav>
+    </header>
+
+    <main id="mainWorkspace" class="app-workspace">
+      <aside class="sidebar" aria-label="Menu de navegação e ferramentas">
+        <div class="dock-tabs" role="tablist" aria-label="Seções do aplicativo">
+          <button class="tab-btn active" id="tab-rota" role="tab" aria-selected="true" aria-controls="panel-rota" onclick="switchTab('rota', this)">🧭 Rota</button>
+          <button class="tab-btn" id="tab-apoio" role="tab" aria-selected="false" aria-controls="panel-apoio" onclick="switchTab('apoio', this)">🤝 Apoio</button>
+          <button class="tab-btn" id="tab-zeladoria" role="tab" aria-selected="false" aria-controls="panel-zeladoria" onclick="switchTab('zeladoria', this)">⚠️ Relatar</button>
+          <button class="tab-btn" id="tab-moderacao" role="tab" aria-selected="false" aria-controls="panel-moderacao" onclick="switchTab('moderacao', this)">🛡️ Moderar</button>
         </div>
 
-        <div class="glass-section">
-          <div class="section-label">
-            <span>Postos da Prefeitura Próximos</span>
-            <span style="color:var(--emerald)">Raio 500m</span>
-          </div>
-          <div id="listaPostos" style="display:flex;flex-direction:column;gap:8px">
-            <div class="posto-card">
-              <div>
-                <h4>Carregando postos municipais...</h4>
-                <p>Consultando equipamentos públicos no raio atual.</p>
+        <div class="dock-body">
+          <!-- ABA 1: ROTA SEGURA -->
+          <section class="tab-panel active" id="panel-rota" role="tabpanel" aria-labelledby="tab-rota">
+            <div class="card">
+              <div class="section-label"><span>1. Perfil de Acessibilidade</span><span style="color:var(--emerald)">NBR 9050</span></div>
+              <div class="profile-selector">
+                <button type="button" class="profile-option selected" id="perfilCego" aria-pressed="true" onclick="selecionarPerfil('cego')">
+                  <span class="icon" aria-hidden="true">🦯</span><strong>Pessoa Cega</strong><span>Piso tátil e guia por voz.</span>
+                </button>
+                <button type="button" class="profile-option" id="perfilCadeirante" aria-pressed="false" onclick="selecionarPerfil('cadeirante')">
+                  <span class="icon" aria-hidden="true">♿</span><strong>Cadeirante</strong><span>Guias rebaixadas e rampas.</span>
+                </button>
               </div>
             </div>
+
+            <div class="card">
+              <div class="section-label"><span>2. Origem e Destino</span><span style="color:var(--sky)">Arraste ou clique no mapa</span></div>
+              <div class="route-points">
+                <div class="point-row">
+                  <span class="point-badge" style="background:rgba(16,185,129,0.22);color:var(--emerald)" aria-hidden="true">A</span>
+                  <span id="coordOrigemTexto">Estação Trianon-Masp (-23.5632, -46.6542)</span>
+                </div>
+                <div class="point-row">
+                  <span class="point-badge" style="background:rgba(56,189,248,0.22);color:var(--sky)" aria-hidden="true">B</span>
+                  <span id="coordDestinoTexto">Hospital / Posto Apoio (-23.5579, -46.6518)</span>
+                </div>
+              </div>
+
+              <label for="presetTrajeto" class="sr-only">Selecionar trajeto de exemplo</label>
+              <select id="presetTrajeto" onchange="aplicarPreset()" style="margin-bottom:8px">
+                <option value="paulista">📍 Av. Paulista: Trianon-Masp → Hospital / CRAS</option>
+                <option value="se">📍 Centro Histórico: Metrô Sé → Subprefeitura Sé</option>
+                <option value="consolacao">📍 Consolação: Metrô Consolação → Parque Trianon</option>
+              </select>
+
+              <button class="btn-primary" onclick="calcularRotaAcessivel()">🧭 Traçar Rota Acessível (OSM + OSRM)</button>
+              <button class="btn-live-start" onclick="iniciarNavegacaoAoVivo()">▶️ Iniciar Navegação ao Vivo (GPS)</button>
+            </div>
+
+            <div class="card">
+              <div class="section-label"><span>3. Diagnóstico da Calçada</span><span style="color:var(--emerald)">Tempo Real</span></div>
+              <div class="kpi-grid">
+                <div class="kpi-tile"><strong id="metricIndice">--</strong><small>Índice Acessível</small></div>
+                <div class="kpi-tile"><strong id="metricDist">--</strong><small>Distância / Tempo</small></div>
+                <div class="kpi-tile"><strong id="metricInfra">--</strong><small>Rampas e Tátil</small></div>
+              </div>
+              <div id="listaPassos" style="display:flex;flex-direction:column;gap:7px"></div>
+            </div>
+          </section>
+
+          <!-- ABA 2: APOIO -->
+          <section class="tab-panel" id="panel-apoio" role="tabpanel" aria-labelledby="tab-apoio">
+            <div class="card">
+              <div class="section-label"><span>Pedido de Apoio Presencial</span><span style="color:var(--sky)">Verificado Gov.br</span></div>
+              <div class="form-stack" style="margin-bottom:8px">
+                <label for="apoioLocal">Ponto de encontro ou necessidade</label>
+                <input type="text" id="apoioLocal" value="Saída acessível da Estação Trianon-Masp" />
+                <label for="apoioTipo" class="sr-only">Tipo de acompanhamento</label>
+                <select id="apoioTipo">
+                  <option value="voluntario">🤝 Voluntário verificado próximo</option>
+                  <option value="posto_prefeitura">🏛️ Agente de posto da Prefeitura (CRAS / Terminal)</option>
+                </select>
+              </div>
+              <button class="btn-primary" onclick="solicitarVoluntario()">🤝 Solicitar Acompanhamento Agora</button>
+              <div id="resultadoVoluntario" style="margin-top:9px" role="status" aria-live="polite"></div>
+            </div>
+
+            <div class="card">
+              <div class="section-label"><span>Seja um Voluntário Verificado</span><span style="color:var(--emerald)">Rede Cidadã</span></div>
+              <p style="font-size:0.76rem;color:var(--text-dim);line-height:1.45;margin-bottom:8px">
+                Ajude pessoas cegas e cadeirantes em travessias e terminais urbanos com validação de identidade Gov.br.
+              </p>
+              <button type="button" class="btn-secondary" onclick="abrirModal('modalVoluntario')">🪪 Cadastrar-se como Voluntário</button>
+              <div id="statusCadastroVoluntario" style="margin-top:8px" role="status" aria-live="polite"></div>
+            </div>
+
+            <div class="card">
+              <div class="section-label"><span>Postos da Prefeitura Próximos</span><span style="color:var(--emerald)">Raio de 500 m</span></div>
+              <div id="listaPostos" style="display:flex;flex-direction:column;gap:8px"></div>
+            </div>
+          </section>
+
+          <!-- ABA 3: RELATAR BARREIRA -->
+          <section class="tab-panel" id="panel-zeladoria" role="tabpanel" aria-labelledby="tab-zeladoria">
+            <div class="card">
+              <div class="section-label"><span>Reportar Barreira Urbana</span><span style="color:var(--amber)">Portal 156 + Foto</span></div>
+              <div class="form-stack">
+                <label for="tipoBarreira">Tipo de obstáculo no destino (Ponto B)</label>
+                <select id="tipoBarreira">
+                  <option value="sem_rampa">🚫 Calçada sem guia rebaixada ou rampa</option>
+                  <option value="calcada_quebrada">🧱 Buraco ou pavimento irregular</option>
+                  <option value="piso_tatil_interrompido">🦯 Piso tátil interrompido ou danificado</option>
+                  <option value="veiculo_bloqueando">🚗 Veículo bloqueando a passagem ou rampa</option>
+                  <option value="obra_sem_sinalizacao">🚧 Obra sem sinalização tátil ou sonora</option>
+                </select>
+
+                <label for="descBarreira">Descrição do problema</label>
+                <textarea id="descBarreira" rows="2">Calçada sem rampa de acesso na travessia da esquina.</textarea>
+
+                <label for="inputFotoBarreira">📸 Foto da barreira (compressão automática)</label>
+                <input type="file" id="inputFotoBarreira" accept="image/*" capture="environment" onchange="processarFotoBarreira(event)" />
+
+                <div id="photoPreviewBox" class="photo-preview-box">
+                  <img id="photoPreviewImg" alt="Prévia da fotografia comprimida da barreira urbana" />
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.72rem;color:var(--text-dim)">
+                    <span id="photoCompressionInfo">Comprimida (0 KB)</span>
+                    <button type="button" class="mini-btn danger" onclick="limparFotoBarreira()">Remover foto</button>
+                  </div>
+                </div>
+
+                <button type="button" class="btn-secondary" onclick="ditarRelatoPorVoz()">🎙️ Ditar Relato por Voz</button>
+                <button type="button" class="btn-primary" onclick="reportarBarreira()">📨 Enviar Relato e Abrir Protocolo 156</button>
+              </div>
+              <div id="resultadoOcorrencia" style="margin-top:9px" role="status" aria-live="polite"></div>
+            </div>
+          </section>
+
+          <!-- ABA 4: MODERAÇÃO -->
+          <section class="tab-panel" id="panel-moderacao" role="tabpanel" aria-labelledby="tab-moderacao">
+            <div class="card">
+              <div class="section-label"><span>Painel de Moderação Comunitária</span><span style="color:var(--sky)">Qualidade e Segurança</span></div>
+              <p style="font-size:0.76rem;color:var(--text-dim);line-height:1.4;margin-bottom:9px">
+                Valide relatos enviados pela comunidade ou remova registros inválidos.
+              </p>
+              <div id="listaModeracao" style="display:flex;flex-direction:column;gap:8px"></div>
+            </div>
+          </section>
+        </div>
+      </aside>
+
+      <!-- Palco do Mapa -->
+      <section class="map-stage" aria-label="Mapa interativo de acessibilidade urbana">
+        <div id="map" role="application" aria-label="Mapa urbano com rotas acessíveis, postos públicos e barreiras"></div>
+
+        <div class="map-style-switcher" role="group" aria-label="Estilo visual do mapa">
+          <button type="button" class="toolbar-btn active" id="btnMapaRua" aria-pressed="true" onclick="trocarCamadaMapa('rua')">🗺️ Mapa Ruas</button>
+          <button type="button" class="toolbar-btn" id="btnMapaSatelite" aria-pressed="false" onclick="trocarCamadaMapa('satelite')">🛰️ Satélite</button>
+        </div>
+
+        <!-- Fase 1: Transcrição ao Vivo -->
+        <section id="voiceLiveBar" class="voice-live-bar" role="region" aria-label="Transcrição de comando por voz">
+          <div class="voice-bar-top">
+            <div class="voice-status-wrap">
+              <div id="waveBars" class="wave-bars paused" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+              <span id="voiceStatusText">Microfone pronto</span>
+            </div>
+            <button type="button" class="toolbar-btn" style="min-height:32px;padding:3px 9px;font-size:0.72rem" onclick="fecharBarraVoz()">✕ Fechar</button>
+          </div>
+          <div id="voiceTranscript" class="voice-transcript" role="status" aria-live="assertive" aria-atomic="true">
+            Pressione Alt+M ou clique em "Voz" para falar um comando.
+          </div>
+        </section>
+
+        <!-- Fase 2: HUD Navegação ao Vivo -->
+        <section id="liveNavHud" class="live-nav-hud" role="region" aria-label="Navegação ao vivo">
+          <div class="nav-hud-header">
+            <span id="navStatusBadge" class="nav-badge-live"><span class="live-dot" aria-hidden="true"></span> Navegação ao Vivo</span>
+            <span id="navStepCounter" style="font-size:0.74rem;font-weight:700;color:var(--text-dim)">Passo 1 de 1</span>
+          </div>
+          <div id="barrierWarningBanner" class="barrier-warning-banner" role="alert" aria-live="assertive">⚠️ ALERTA DE BARREIRA À FRENTE!</div>
+          <div class="nav-next-step-box" aria-live="polite">
+            <span class="nav-step-kicker" id="navStepKicker">➡️ Próximo passo</span>
+            <div class="nav-step-big" id="navStepBigText">Iniciando navegação...</div>
+            <div id="navHapticTag" class="chip sky" style="width:fit-content">📳 Vibração e áudio ativos</div>
+          </div>
+          <div class="nav-metrics-row">
+            <div class="nav-metric-pill"><strong id="navDistRemaining">-- m</strong><small>Distância Restante</small></div>
+            <div class="nav-metric-pill"><strong id="navEtaRemaining">-- min</strong><small>Tempo Estimado</small></div>
+          </div>
+          <div class="nav-progress-track" aria-hidden="true"><div id="navProgressFill" class="nav-progress-fill"></div></div>
+          <div class="nav-controls-grid">
+            <button type="button" id="btnPauseNav" class="btn-nav-pause" onclick="alternarPausaNavegacao()">⏸️ Pausar</button>
+            <button type="button" class="btn-nav-stop" onclick="encerrarNavegacaoAoVivo()">⏹️ Encerrar</button>
+          </div>
+          <div class="nav-gps-footer">
+            <span id="gpsStatusLabel">🛰️ GPS: Pronto</span>
+            <div style="display:flex;gap:6px">
+              <button type="button" class="mini-btn" onclick="avancarPassoSimulado()">🚶 Próximo Passo</button>
+              <button type="button" class="mini-btn" style="background:var(--amber);color:#000" onclick="repetirInstrucaoAtual()">🔊 Repetir</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Legenda -->
+        <div class="floating-legend" aria-hidden="true">
+          <div class="legend-item"><span class="swatch" style="background:#10b981"></span> Rota Acessível Verificada</div>
+          <div class="legend-item"><span class="swatch" style="background:#38bdf8"></span> Posto Prefeitura / CRAS</div>
+          <div class="legend-item"><span class="swatch" style="background:#fbbf24"></span> Rampa / Piso Tátil (OSM)</div>
+          <div class="legend-item"><span class="swatch" style="background:#fb7185"></span> Barreira Reportada (com Foto)</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL 1: INSTALAR APP -->
+  <div id="modalInstalarApp" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tituloInstalar">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="logo-badge" style="width:44px;height:44px;font-size:1.1rem" aria-hidden="true">RL</div>
+          <div>
+            <h2 id="tituloInstalar" style="font-size:1.05rem;font-weight:800">📲 Instalar RotaLivre (PWA)</h2>
+            <p style="font-size:0.75rem;color:var(--text-dim)">Acesso rápido na tela inicial e suporte offline</p>
           </div>
         </div>
+        <button class="toolbar-btn" onclick="fecharModal('modalInstalarApp')" aria-label="Fechar janela de instalação">✕ Fechar</button>
       </div>
-
-      <!-- ABA 3: ZELADORIA URBANA (PORTAL 156) -->
-      <div class="tab-panel" id="panel-zeladoria">
-        <div class="glass-section">
-          <div class="section-label">
-            <span>Reportar Barreira Urbana</span>
-            <span style="color:var(--amber)">Integração Portal 156</span>
-          </div>
-
-          <div style="display:flex;flex-direction:column;gap:9px">
-            <label for="tipoBarreira" style="font-size:0.78rem;color:var(--text-dim)">Tipo de obstáculo no destino (Ponto B):</label>
-            <select id="tipoBarreira">
-              <option value="sem_rampa">🚫 Calçada sem guia rebaixada / rampa</option>
-              <option value="calcada_quebrada">🧱 Buraco ou pavimento irregular</option>
-              <option value="piso_tatil_interrompido">🦯 Piso tátil interrompido ou danificado</option>
-              <option value="veiculo_bloqueando">🚗 Veículo bloqueando a passagem/rampa</option>
-              <option value="obra_sem_sinalizacao">🚧 Obra sem sinalização tátil/sonora</option>
-            </select>
-
-            <textarea id="descBarreira" rows="2" placeholder="Descreva o local ou use o ditado por voz...">Calçada sem rampa de acesso na travessia da esquina.</textarea>
-
-            <button type="button" class="btn-voice-input" onclick="ditarRelatoPorVoz()">
-              🎙️ Ditar Relato por Voz (Hands-Free)
-            </button>
-
-            <button type="button" class="btn-primary" onclick="reportarBarreira()">
-              📨 Enviar para Prefeitura (Abrir Protocolo 156)
-            </button>
-          </div>
-
-          <div id="resultadoOcorrencia" style="margin-top:10px" role="status" aria-live="polite"></div>
-        </div>
+      <div class="card" style="font-size:0.8rem;line-height:1.5">
+        <ul style="padding-left:18px;color:var(--text-dim);display:flex;flex-direction:column;gap:5px">
+          <li><strong>Android / Chrome / Edge:</strong> Clique no botão abaixo ou em <em>"Instalar aplicativo"</em> na barra de endereço.</li>
+          <li><strong>iPhone (Safari):</strong> Toque em <strong>Compartilhar (□↑)</strong> e depois em <strong>Adicionar à Tela de Início</strong>.</li>
+          <li><strong>Modo offline:</strong> Armazena rotas recentes, comandos de voz e contatos SOS localmente.</li>
+        </ul>
       </div>
+      <button class="btn-primary" onclick="executarInstalacaoPWA()">⬇️ Instalar na Tela Inicial Agora</button>
+      <div id="statusInstalarPWA" style="font-size:0.78rem;color:var(--emerald);text-align:center" role="status" aria-live="polite"></div>
     </div>
-  </aside>
+  </div>
 
-  <!-- 5. Modal Tela "O que posso dizer?" -->
-  <div
-    id="modalAjudaVoz"
-    class="modal-backdrop"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="tituloModalAjuda"
-  >
+  <!-- MODAL 2: CADASTRO VOLUNTÁRIO -->
+  <div id="modalVoluntario" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tituloVol">
     <div class="modal-card">
       <div class="modal-header">
         <div>
-          <h2 id="tituloModalAjuda" style="font-size:1.1rem;font-weight:800">💬 O que posso dizer?</h2>
-          <p style="font-size:0.76rem;color:var(--text-dim);margin-top:2px">
-            Atalho rápido: <strong>Alt + M</strong> (ou clique em qualquer comando abaixo para testar)
-          </p>
+          <h2 id="tituloVol" style="font-size:1.05rem;font-weight:800">🪪 Cadastro de Voluntário Verificado</h2>
+          <p style="font-size:0.75rem;color:var(--text-dim)">Validação de identidade e disponibilidade por região</p>
         </div>
-        <button class="toolbar-btn" onclick="fecharModalAjuda()" aria-label="Fechar tela de comandos de voz">
-          ✕ Fechar
-        </button>
+        <button class="toolbar-btn" onclick="fecharModal('modalVoluntario')" aria-label="Fechar cadastro de voluntário">✕ Fechar</button>
       </div>
+      <form class="form-stack" onsubmit="salvarCadastroVoluntario(event)">
+        <label for="volNome">Nome completo</label>
+        <input type="text" id="volNome" required placeholder="Seu nome completo" />
+        <label for="volDoc">CPF (validação Gov.br)</label>
+        <input type="text" id="volDoc" required placeholder="000.000.000-00" />
+        <label for="volRegiao">Região ou estação de atuação</label>
+        <input type="text" id="volRegiao" required value="Av. Paulista / Metrô Trianon-Masp / Consolação" />
+        <label for="volTurno">Disponibilidade</label>
+        <select id="volTurno">
+          <option value="manha">Manhã (07h – 12h)</option>
+          <option value="tarde">Tarde (12h – 18h)</option>
+          <option value="noite">Noite (18h – 22h)</option>
+        </select>
+        <button type="submit" class="btn-primary">🛡️ Enviar para Verificação Gov.br</button>
+      </form>
+    </div>
+  </div>
 
-      <div class="cmd-grid">
-        <button class="cmd-chip-btn" onclick="testarComandoModal('perfil cego')">
-          <strong>"Perfil cego"</strong>
-          <span>Ativa prioridade de piso tátil e alertas sonoros.</span>
-        </button>
-        <button class="cmd-chip-btn" onclick="testarComandoModal('perfil cadeirante')">
-          <strong>"Perfil cadeirante"</strong>
-          <span>Ativa guias rebaixadas e inclinação NBR 9050.</span>
-        </button>
-        <button class="cmd-chip-btn" onclick="testarComandoModal('calcular rota')">
-          <strong>"Calcular rota"</strong>
-          <span>Traça a rota acessível em tempo real no mapa.</span>
-        </button>
-        <button class="cmd-chip-btn" onclick="testarComandoModal('ler instruções')">
-          <strong>"Ler instruções"</strong>
-          <span>Lê em voz alta o passo a passo da rota atual.</span>
-        </button>
-        <button class="cmd-chip-btn" onclick="testarComandoModal('chamar voluntário')">
-          <strong>"Chamar voluntário"</strong>
-          <span>Solicita acompanhamento verificado (Gov.br).</span>
-        </button>
-        <button class="cmd-chip-btn" onclick="testarComandoModal('abrir postos')">
-          <strong>"Abrir postos"</strong>
-          <span>Mostra postos da Prefeitura (CRAS/Subprefeitura).</span>
-        </button>
-        <button class="cmd-chip-btn" onclick="testarComandoModal('reportar barreira')">
-          <strong>"Reportar barreira"</strong>
-          <span>Abre protocolo de calçada sem rampa no Portal 156.</span>
-        </button>
-        <button class="cmd-chip-btn" onclick="testarComandoModal('alto contraste')">
-          <strong>"Alto contraste"</strong>
-          <span>Alterna o modo visual de alto contraste.</span>
-        </button>
+  <!-- MODAL 3: SOS -->
+  <div id="modalSOS" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tituloSOS">
+    <div class="modal-card" style="border-color:var(--rose)">
+      <div class="modal-header">
+        <div>
+          <h2 id="tituloSOS" style="font-size:1.1rem;font-weight:800;color:#fecdd3">🆘 SOS e Contatos de Confiança</h2>
+          <p style="font-size:0.75rem;color:var(--text-dim)">Acionamento rápido com envio da localização GPS</p>
+        </div>
+        <button class="toolbar-btn" onclick="fecharModal('modalSOS')" aria-label="Fechar janela de emergência SOS">✕ Fechar</button>
       </div>
-
-      <div class="privacy-box">
-        <strong>🔒 Aviso de Privacidade e LGPD:</strong> O comando por voz utiliza a API nativa do seu navegador (Web Speech API). O microfone só é ativado quando você clica no botão ou usa o atalho <strong>Alt+M</strong>, pausa automaticamente enquanto o app fala a resposta e <strong>nenhum áudio é gravado ou enviado para servidores de terceiros pelo RotaLivre</strong>.
+      <button type="button" class="btn-sos" style="width:100%;justify-content:center;padding:13px;font-size:0.95rem" onclick="dispararAlertaSOS()">
+        🚨 ENVIAR ALERTA SOS AGORA (GPS + POSTO MUNICIPAL)
+      </button>
+      <div id="sosFeedback" role="alert" aria-live="assertive"></div>
+      <div class="card">
+        <div class="section-label"><span>Meus Contatos de Confiança</span><span style="color:var(--emerald)">Salvos Offline</span></div>
+        <div id="listaContatosSOS" style="display:flex;flex-direction:column;gap:7px;margin-bottom:10px"></div>
+        <form class="form-stack" onsubmit="adicionarContatoSOS(event)">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <label for="sosNovoNome" class="sr-only">Nome do contato</label>
+            <input type="text" id="sosNovoNome" required placeholder="Nome (ex.: Mãe / Irmão)" />
+            <label for="sosNovoTel" class="sr-only">Telefone do contato</label>
+            <input type="tel" id="sosNovoTel" required placeholder="(11) 99999-9999" />
+          </div>
+          <button type="submit" class="btn-secondary">➕ Adicionar Contato de Confiança</button>
+        </form>
       </div>
     </div>
   </div>
 
-  <!-- Legenda Flutuante -->
-  <div class="floating-legend" aria-hidden="true">
-    <div class="legend-item"><span class="swatch" style="background:#10b981"></span> Rota Acessível Verificada</div>
-    <div class="legend-item"><span class="swatch" style="background:#38bdf8"></span> Posto Prefeitura / CRAS / Apoio</div>
-    <div class="legend-item"><span class="swatch" style="background:#f59e0b"></span> Rampa / Piso Tátil (OSM)</div>
-    <div class="legend-item"><span class="swatch" style="background:#f43f5e"></span> Barreira Reportada (Portal 156)</div>
+  <!-- MODAL 4: COMANDOS DE VOZ -->
+  <div id="modalAjudaVoz" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tituloModalAjuda">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="tituloModalAjuda" style="font-size:1.05rem;font-weight:800">💬 O que posso dizer?</h2>
+          <p style="font-size:0.75rem;color:var(--text-dim)">Atalho: <strong>Alt + M</strong> (clique em qualquer comando para testar)</p>
+        </div>
+        <button class="toolbar-btn" onclick="fecharModal('modalAjudaVoz')" aria-label="Fechar lista de comandos de voz">✕ Fechar</button>
+      </div>
+      <div class="cmd-grid">
+        <button class="cmd-chip-btn" onclick="testarComandoModal('iniciar navegação')"><strong>"Iniciar navegação"</strong><span>Abre a navegação ao vivo com GPS e vibração.</span></button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('pausar navegação')"><strong>"Pausar navegação"</strong><span>Pausa ou retoma o acompanhamento ao vivo.</span></button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('encerrar navegação')"><strong>"Encerrar navegação"</strong><span>Encerra a navegação ao vivo.</span></button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('sos')"><strong>"SOS" ou "Emergência"</strong><span>Abre os contatos de confiança e envia alerta.</span></button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('perfil cego')"><strong>"Perfil cego"</strong><span>Prioriza piso tátil e alertas sonoros.</span></button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('perfil cadeirante')"><strong>"Perfil cadeirante"</strong><span>Prioriza guias rebaixadas e norma NBR 9050.</span></button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('chamar voluntário')"><strong>"Chamar voluntário"</strong><span>Conecta a um voluntário verificado (Gov.br).</span></button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('reportar barreira')"><strong>"Reportar barreira"</strong><span>Abre protocolo automático no Portal 156.</span></button>
+      </div>
+      <div class="privacy-box">
+        <strong>🔒 Privacidade (LGPD):</strong> Nenhum áudio é gravado ou armazenado em servidores externos.
+      </div>
+    </div>
   </div>
 
+  <!-- BANNER LGPD -->
+  <aside id="lgpdConsentBar" class="lgpd-consent-bar" role="region" aria-label="Aviso e consentimento de privacidade LGPD">
+    <div style="flex:1;min-width:240px;font-size:0.78rem;line-height:1.45;color:var(--text-dim)">
+      <strong style="color:var(--text-main)">🔒 Privacidade e Proteção de Dados (LGPD):</strong> O RotaLivre utiliza localização GPS em tempo real, reconhecimento de voz local e armazenamento offline apenas para calcular rotas acessíveis e acionar apoio ou SOS. Nenhum áudio é gravado.
+    </div>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="toolbar-btn" onclick="abrirModal('modalAjudaVoz')">Saiba mais</button>
+      <button type="button" class="btn-primary" style="width:auto;padding:8px 16px" onclick="aceitarLGPD()">Aceitar e Continuar</button>
+    </div>
+  </aside>
+
   <script>
+    // PWA Manifest & Ícones
+    const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#10b981"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="76" fill="#022c22">RL</text></svg>`;
+    const iconDataUrl = 'data:image/svg+xml;base64,' + btoa(svgIcon);
+    const linkIcon = document.createElement('link');
+    linkIcon.rel = 'icon';
+    linkIcon.href = iconDataUrl;
+    document.head.appendChild(linkIcon);
+
+    const manifestObj = {
+      name: 'RotaLivre – CitizenTech Urbano',
+      short_name: 'RotaLivre',
+      start_url: '.',
+      display: 'standalone',
+      background_color: '#090f1d',
+      theme_color: '#10b981',
+      icons: [{ src: iconDataUrl, sizes: '192x192', type: 'image/svg+xml' }]
+    };
+    const manifestLink = document.createElement('link');
+    manifestLink.rel = 'manifest';
+    manifestLink.href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(manifestObj));
+    document.head.appendChild(manifestLink);
+
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
+
+    function executarInstalacaoPWA() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => {
+          document.getElementById('statusInstalarPWA').textContent = '✅ Instalação iniciada com sucesso!';
+          deferredPrompt = null;
+        });
+      } else {
+        document.getElementById('statusInstalarPWA').textContent = '✅ App pronto! Use o menu do navegador ("Instalar aplicativo" / "Adicionar à Tela de Início").';
+      }
+    }
+
+    function atualizarStatusConexao() {
+      const banner = document.getElementById('offlineBanner');
+      if (!navigator.onLine) banner.classList.add('visible');
+      else banner.classList.remove('visible');
+    }
+    window.addEventListener('online', atualizarStatusConexao);
+    window.addEventListener('offline', atualizarStatusConexao);
+
     let perfilAtual = 'cego';
     let origem = { lat: -23.563210, lon: -46.654250 };
     let destino = { lat: -23.557920, lon: -46.651840 };
-    let ultimasInstrucoes = [];
+    let ultimaRotaData = null;
+    let fotoComprimidaBase64 = null;
+    let map = null;
+    let markerOrigem = null, markerDestino = null, rotaLayer = null, rotaGlowLayer = null, pontosLayer = null;
+    let camadaRuasOSM = null, camadaSateliteEsri = null;
 
-    // Estado do módulo de Comando por Voz (Fase 1)
-    let recognition = null;
-    let isListening = false;
-    let isSpeaking = false;
+    const fotoExemploSvg = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120"><rect width="240" height="120" fill="#1e293b"/><rect x="20" y="75" width="200" height="25" fill="#475569"/><polygon points="95,75 120,45 145,75" fill="#f43f5e"/><text x="120" y="28" text-anchor="middle" fill="#f8fafc" font-family="sans-serif" font-size="12" font-weight="bold">Registro Fotográfico • Calçada Irregular</text></svg>`);
+
+    let relatosComunidade = [
+      { id: 'RL-101', lat: -23.560500, lon: -46.653100, tipo: 'calcada_quebrada', titulo: 'Calçada irregular com desnível', descricao: 'Piso danificado próximo à travessia da Av. Paulista.', status: 'aprovado', protocolo: '156-2026-482910', foto: fotoExemploSvg },
+      { id: 'RL-102', lat: -23.559100, lon: -46.652400, tipo: 'sem_rampa', titulo: 'Esquina sem guia rebaixada', descricao: 'Aguardando validação comunitária para envio ao Portal 156.', status: 'pendente', protocolo: '156-2026-993104', foto: fotoExemploSvg }
+    ];
+
+    let contatosSOS = JSON.parse(localStorage.getItem('rotalivre_sos') || 'null') || [
+      { nome: 'Mariana Alcantara (Contato Principal)', tel: '(11) 98765-4321' },
+      { nome: 'Central de Apoio da Prefeitura (156)', tel: '156' }
+    ];
+
+    let recognition = null, isListening = false, isSpeaking = false;
+    let navAtiva = false, navPausada = false, navPassoIndex = 0, gpsWatchId = null, userGpsMarker = null;
 
     const presets = {
-      paulista: {
-        orig: [-23.563210, -46.654250],
-        dest: [-23.557920, -46.651840],
-        nomeOrig: 'Estação Trianon-Masp',
-        nomeDest: 'Hospital / Posto de Apoio Paulista'
-      },
-      se: {
-        orig: [-23.550309, -46.634200],
-        dest: [-23.548120, -46.631950],
-        nomeOrig: 'Estação Metrô Sé',
-        nomeDest: 'Subprefeitura / Poupatempo Sé'
-      },
-      consolacao: {
-        orig: [-23.557850, -46.660620],
-        dest: [-23.561710, -46.655980],
-        nomeOrig: 'Estação Consolação',
-        nomeDest: 'Parque Trianon (Travessia Acessível)'
-      }
+      paulista: { orig: [-23.563210, -46.654250], dest: [-23.557920, -46.651840], nomeOrig: 'Estação Trianon-Masp', nomeDest: 'Hospital / Posto Apoio Paulista' },
+      se: { orig: [-23.550309, -46.634200], dest: [-23.548120, -46.631950], nomeOrig: 'Estação Metrô Sé', nomeDest: 'Subprefeitura / Poupatempo Sé' },
+      consolacao: { orig: [-23.557850, -46.660620], dest: [-23.561710, -46.655980], nomeOrig: 'Estação Consolação', nomeDest: 'Parque Trianon' }
     };
 
-    const map = L.map('map', { zoomControl: false }).setView([origem.lat, origem.lon], 16);
-    L.control.zoom({ position: 'topright' }).addTo(map);
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      maxZoom: 19
-    }).addTo(map);
-
-    const iconOrigem = L.divIcon({
-      className: '',
-      html: '<div style="width:28px;height:28px;border-radius:50%;background:#10b981;border:3px solid #fff;color:#042f2e;font-weight:800;display:grid;place-items:center;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.5)">A</div>',
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
-    });
-
-    const iconDestino = L.divIcon({
-      className: '',
-      html: '<div style="width:28px;height:28px;border-radius:50%;background:#38bdf8;border:3px solid #fff;color:#082f49;font-weight:800;display:grid;place-items:center;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.5)">B</div>',
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
-    });
-
-    let markerOrigem = L.marker([origem.lat, origem.lon], { draggable: true, icon: iconOrigem }).addTo(map).bindPopup('Ponto A: Origem (arraste para ajustar)');
-    let markerDestino = L.marker([destino.lat, destino.lon], { draggable: true, icon: iconDestino }).addTo(map).bindPopup('Ponto B: Destino (arraste para ajustar)');
-    let rotaLayer = null;
-    let rotaGlowLayer = null;
-    let pontosLayer = L.layerGroup().addTo(map);
-
-    function atualizarTextoCoordenadas(nomeA, nomeB) {
-      document.getElementById('coordOrigemTexto').textContent =
-        `${nomeA || 'Ponto A'} (${origem.lat.toFixed(4)}, ${origem.lon.toFixed(4)})`;
-      document.getElementById('coordDestinoTexto').textContent =
-        `${nomeB || 'Ponto B'} (${destino.lat.toFixed(4)}, ${destino.lon.toFixed(4)})`;
+    function alternarAbaAuth(modo) {
+      document.getElementById('authTabLogin').classList.toggle('active', modo === 'login');
+      document.getElementById('authTabLogin').setAttribute('aria-selected', modo === 'login');
+      document.getElementById('authTabCadastro').classList.toggle('active', modo === 'cadastro');
+      document.getElementById('authTabCadastro').setAttribute('aria-selected', modo === 'cadastro');
+      document.getElementById('formLogin').style.display = modo === 'login' ? 'flex' : 'none';
+      document.getElementById('formCadastro').style.display = modo === 'cadastro' ? 'flex' : 'none';
     }
 
-    markerOrigem.on('dragend', () => {
-      const pos = markerOrigem.getLatLng();
-      origem = { lat: pos.lat, lon: pos.lng };
-      atualizarTextoCoordenadas('Origem Personalizada', null);
-      calcularRotaAcessivel();
-    });
+    function liberarAplicativo(nomeUsuario, perfilEscolhido) {
+      localStorage.setItem('rotalivre_user', JSON.stringify({ nome: nomeUsuario, perfil: perfilEscolhido || perfilAtual }));
+      document.getElementById('nomeUsuarioHeader').textContent = nomeUsuario;
+      document.getElementById('authGateScreen').classList.add('hidden');
+      document.getElementById('appContainer').classList.add('unlocked');
 
-    markerDestino.on('dragend', () => {
-      const pos = markerDestino.getLatLng();
-      destino = { lat: pos.lat, lon: pos.lng };
-      atualizarTextoCoordenadas(null, 'Destino Personalizado');
-      calcularRotaAcessivel();
-    });
+      if (perfilEscolhido === 'cego' || perfilEscolhido === 'cadeirante') {
+        perfilAtual = perfilEscolhido;
+      }
 
-    map.on('click', (e) => {
-      destino = { lat: e.latlng.lat, lon: e.latlng.lng };
-      markerDestino.setLatLng([destino.lat, destino.lon]);
-      atualizarTextoCoordenadas(null, 'Destino Selecionado no Mapa');
-      calcularRotaAcessivel();
-    });
+      inicializarMapaApp();
+
+      if (!localStorage.getItem('rotalivre_lgpd_ok')) {
+        document.getElementById('lgpdConsentBar').classList.add('visible');
+      }
+    }
+
+    function realizarLogin(e) {
+      e.preventDefault();
+      const raw = document.getElementById('loginEmail').value.trim();
+      const nome = raw.includes('@') ? raw.split('@')[0] : raw;
+      liberarAplicativo(nome || 'Cidadão', perfilAtual);
+    }
+
+    function realizarCadastro(e) {
+      e.preventDefault();
+      const nomeCompleto = document.getElementById('cadNome').value.trim();
+      const primeiroNome = nomeCompleto.split(' ')[0] || 'Cidadão';
+      const perfil = document.getElementById('cadPerfil').value;
+      liberarAplicativo(primeiroNome, perfil);
+    }
+
+    function entrarComGovBr() {
+      liberarAplicativo('Natalia (Gov.br)', 'cego');
+    }
+
+    function sairDoApp() {
+      encerrarNavegacaoAoVivo();
+      localStorage.removeItem('rotalivre_user');
+      document.getElementById('appContainer').classList.remove('unlocked');
+      document.getElementById('authGateScreen').classList.remove('hidden');
+    }
+
+    function inicializarMapaApp() {
+      if (!map) {
+        map = L.map('map', { zoomControl: false }).setView([origem.lat, origem.lon], 16);
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+        camadaRuasOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          subdomains: ['a', 'b', 'c'],
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19
+        });
+
+        camadaSateliteEsri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: '&copy; Esri / Maxar',
+          maxZoom: 19
+        });
+
+        camadaRuasOSM.addTo(map);
+
+        const iconOrigem = L.divIcon({ className: '', html: '<div style="width:28px;height:28px;border-radius:50%;background:#10b981;border:3px solid #fff;color:#022c22;font-weight:800;display:grid;place-items:center;font-size:12px;box-shadow:0 4px 10px rgba(0,0,0,0.45)">A</div>', iconSize: [28, 28], iconAnchor: [14, 14] });
+        const iconDestino = L.divIcon({ className: '', html: '<div style="width:28px;height:28px;border-radius:50%;background:#38bdf8;border:3px solid #fff;color:#082f49;font-weight:800;display:grid;place-items:center;font-size:12px;box-shadow:0 4px 10px rgba(0,0,0,0.45)">B</div>', iconSize: [28, 28], iconAnchor: [14, 14] });
+
+        markerOrigem = L.marker([origem.lat, origem.lon], { draggable: true, icon: iconOrigem, alt: 'Ponto A: Origem' }).addTo(map).bindPopup('Ponto A: Origem');
+        markerDestino = L.marker([destino.lat, destino.lon], { draggable: true, icon: iconDestino, alt: 'Ponto B: Destino' }).addTo(map).bindPopup('Ponto B: Destino');
+        pontosLayer = L.layerGroup().addTo(map);
+
+        markerOrigem.on('dragend', () => { const p = markerOrigem.getLatLng(); origem = { lat: p.lat, lon: p.lng }; atualizarTextoCoordenadas('Origem Personalizada', null); calcularRotaAcessivel(); });
+        markerDestino.on('dragend', () => { const p = markerDestino.getLatLng(); destino = { lat: p.lat, lon: p.lng }; atualizarTextoCoordenadas(null, 'Destino Personalizado'); calcularRotaAcessivel(); });
+        map.on('click', (e) => { destino = { lat: e.latlng.lat, lon: e.latlng.lng }; markerDestino.setLatLng([destino.lat, destino.lon]); atualizarTextoCoordenadas(null, 'Destino no Mapa'); calcularRotaAcessivel(); });
+      }
+
+      document.getElementById('perfilCego').classList.toggle('selected', perfilAtual === 'cego');
+      document.getElementById('perfilCego').setAttribute('aria-pressed', perfilAtual === 'cego');
+      document.getElementById('perfilCadeirante').classList.toggle('selected', perfilAtual === 'cadeirante');
+      document.getElementById('perfilCadeirante').setAttribute('aria-pressed', perfilAtual === 'cadeirante');
+
+      setTimeout(() => {
+        map.invalidateSize();
+        calcularRotaAcessivel();
+      }, 120);
+    }
+
+    function trocarCamadaMapa(tipo) {
+      if (!map) return;
+      map.removeLayer(camadaRuasOSM);
+      map.removeLayer(camadaSateliteEsri);
+      document.getElementById('btnMapaRua').classList.toggle('active', tipo === 'rua');
+      document.getElementById('btnMapaRua').setAttribute('aria-pressed', tipo === 'rua');
+      document.getElementById('btnMapaSatelite').classList.toggle('active', tipo === 'satelite');
+      document.getElementById('btnMapaSatelite').setAttribute('aria-pressed', tipo === 'satelite');
+      if (tipo === 'satelite') camadaSateliteEsri.addTo(map);
+      else camadaRuasOSM.addTo(map);
+    }
+
+    window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
+
+    function haversineMetros(lat1, lon1, lat2, lon2) {
+      const R = 6371000, toRad = (v) => (v * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function atualizarTextoCoordenadas(nomeA, nomeB) {
+      document.getElementById('coordOrigemTexto').textContent = `${nomeA || 'Ponto A'} (${origem.lat.toFixed(4)}, ${origem.lon.toFixed(4)})`;
+      document.getElementById('coordDestinoTexto').textContent = `${nomeB || 'Ponto B'} (${destino.lat.toFixed(4)}, ${destino.lon.toFixed(4)})`;
+    }
 
     function switchTab(tabId, btnEl) {
-      document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.remove('active');
-        b.setAttribute('aria-selected', 'false');
-      });
+      document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      if (btnEl) {
-        btnEl.classList.add('active');
-        btnEl.setAttribute('aria-selected', 'true');
-      }
+      if (btnEl) { btnEl.classList.add('active'); btnEl.setAttribute('aria-selected', 'true'); }
       document.getElementById(`panel-${tabId}`).classList.add('active');
     }
 
-    function toggleContrast() {
-      const active = document.body.classList.toggle('high-contrast');
-      const btn = document.getElementById('btnContrast');
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-pressed', active);
-      return active;
-    }
+    function abrirModal(id) { document.getElementById(id).classList.add('open'); }
+    function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
 
-    function toggleFontSize() {
-      const active = document.body.classList.toggle('large-text');
-      const btn = document.getElementById('btnFont');
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-pressed', active);
-      return active;
-    }
-
+    function toggleContrast() { const a = document.body.classList.toggle('high-contrast'); const b = document.getElementById('btnContrast'); b.classList.toggle('active', a); b.setAttribute('aria-pressed', a); return a; }
+    function toggleFontSize() { const a = document.body.classList.toggle('large-text'); const b = document.getElementById('btnFont'); b.classList.toggle('active', a); b.setAttribute('aria-pressed', a); return a; }
     function selecionarPerfil(perfil) {
       perfilAtual = perfil;
       document.getElementById('perfilCego').classList.toggle('selected', perfil === 'cego');
+      document.getElementById('perfilCego').setAttribute('aria-pressed', perfil === 'cego');
       document.getElementById('perfilCadeirante').classList.toggle('selected', perfil === 'cadeirante');
+      document.getElementById('perfilCadeirante').setAttribute('aria-pressed', perfil === 'cadeirante');
       calcularRotaAcessivel();
     }
+    function aplicarPreset() { const p = presets[document.getElementById('presetTrajeto').value]; origem = { lat: p.orig[0], lon: p.orig[1] }; destino = { lat: p.dest[0], lon: p.dest[1] }; if (markerOrigem) markerOrigem.setLatLng(p.orig); if (markerDestino) markerDestino.setLatLng(p.dest); atualizarTextoCoordenadas(p.nomeOrig, p.nomeDest); calcularRotaAcessivel(); }
+    function definirDestinoPosto(lat, lon, nome) { destino = { lat, lon }; if (markerDestino) markerDestino.setLatLng([lat, lon]); atualizarTextoCoordenadas(null, nome); switchTab('rota', document.getElementById('tab-rota')); calcularRotaAcessivel(); }
 
-    function aplicarPreset() {
-      const key = document.getElementById('presetTrajeto').value;
-      const p = presets[key];
-      origem = { lat: p.orig[0], lon: p.orig[1] };
-      destino = { lat: p.dest[0], lon: p.dest[1] };
-      markerOrigem.setLatLng(p.orig);
-      markerDestino.setLatLng(p.dest);
-      atualizarTextoCoordenadas(p.nomeOrig, p.nomeDest);
-      calcularRotaAcessivel();
+    function processarFotoBarreira(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxWidth = 640;
+          const scale = Math.min(1, maxWidth / img.width);
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          fotoComprimidaBase64 = canvas.toDataURL('image/jpeg', 0.68);
+          const kb = Math.round((fotoComprimidaBase64.length * 3) / 4 / 1024);
+          document.getElementById('photoPreviewImg').src = fotoComprimidaBase64;
+          document.getElementById('photoCompressionInfo').textContent = `✅ Comprimida (${kb} KB • ${canvas.width}×${canvas.height} px)`;
+          document.getElementById('photoPreviewBox').classList.add('visible');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
     }
 
-    function definirDestinoPosto(lat, lon, nome) {
-      destino = { lat, lon };
-      markerDestino.setLatLng([lat, lon]);
-      atualizarTextoCoordenadas(null, nome);
-      switchTab('rota', document.getElementById('tab-rota'));
-      calcularRotaAcessivel();
+    function limparFotoBarreira() {
+      fotoComprimidaBase64 = null;
+      document.getElementById('inputFotoBarreira').value = '';
+      document.getElementById('photoPreviewBox').classList.remove('visible');
     }
 
-    // =========================================================
-    // FASE 1: COMANDO POR VOZ (INTERFACE + EXECUÇÃO + TTS + LGPD)
-    // =========================================================
+    function criarHtmlPopupRelato(relato) {
+      const imgHtml = relato.foto
+        ? `<img src="${relato.foto}" alt="Foto da barreira urbana reportada" style="width:100%;max-height:110px;object-fit:cover;border-radius:8px;margin-top:6px;display:block" />`
+        : '';
+      return `<div style="min-width:190px;font-family:sans-serif"><strong>⚠️ ${relato.titulo || 'Barreira Reportada'}</strong><br><span style="font-size:12px">${relato.descricao}</span><br><span style="font-size:11px;color:#0284c7;font-weight:700">Protocolo: ${relato.protocolo} (${relato.status})</span>${imgHtml}</div>`;
+    }
+
+    function renderizarModeracao() {
+      const container = document.getElementById('listaModeracao');
+      if (!relatosComunidade.length) {
+        container.innerHTML = '<div class="step-card">Nenhum relato pendente na fila de moderação.</div>';
+        return;
+      }
+      container.innerHTML = relatosComunidade.map(r => `
+        <div class="step-card" style="border-left-color:${r.status === 'aprovado' ? 'var(--emerald-solid)' : 'var(--amber)'}">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+            <strong>${r.titulo}</strong>
+            <span class="chip ${r.status === 'aprovado' ? '' : 'amber'}">${r.status.toUpperCase()}</span>
+          </div>
+          <span style="color:var(--text-dim)">${r.descricao}</span>
+          ${r.foto ? `<img src="${r.foto}" alt="Evidência fotográfica do relato ${r.titulo}" style="width:100%;height:84px;object-fit:cover;border-radius:8px" />` : ''}
+          <div style="display:flex;gap:6px;margin-top:4px">
+            ${r.status !== 'aprovado' ? `<button type="button" class="mini-btn success" onclick="aprovarRelato('${r.id}')">✅ Aprovar</button>` : ''}
+            <button type="button" class="mini-btn danger" onclick="removerRelato('${r.id}')">🗑️ Remover</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function aprovarRelato(id) {
+      const item = relatosComunidade.find(r => r.id === id);
+      if (item) { item.status = 'aprovado'; renderizarModeracao(); atualizarMarcadoresMapa(); responderFalado('Relato aprovado e publicado no mapa acessível.'); }
+    }
+
+    function removerRelato(id) {
+      relatosComunidade = relatosComunidade.filter(r => r.id !== id);
+      renderizarModeracao(); atualizarMarcadoresMapa(); responderFalado('Relato removido da plataforma.');
+    }
+
+    function salvarCadastroVoluntario(e) {
+      e.preventDefault();
+      const nome = document.getElementById('volNome').value;
+      const regiao = document.getElementById('volRegiao').value;
+      fecharModal('modalVoluntario');
+      document.getElementById('statusCadastroVoluntario').innerHTML = `<div class="alert-box"><strong>✅ Voluntário cadastrado!</strong><br>${nome} • Atuação: ${regiao}<br>Status: <strong>Validação Gov.br ativa</strong></div>`;
+      responderFalado(`Cadastro de voluntário realizado para ${nome}.`);
+    }
+
+    function renderizarContatosSOS() {
+      document.getElementById('listaContatosSOS').innerHTML = contatosSOS.map((c, idx) => `
+        <div class="posto-card">
+          <div><h4>📞 ${c.nome}</h4><p>${c.tel}</p></div>
+          <div style="display:flex;gap:5px">
+            <a href="tel:${c.tel}" class="mini-btn" style="text-decoration:none" aria-label="Ligar para ${c.nome}">Ligar</a>
+            ${idx > 1 ? `<button type="button" class="mini-btn danger" aria-label="Remover contato ${c.nome}" onclick="removerContatoSOS(${idx})">✕</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function adicionarContatoSOS(e) {
+      e.preventDefault();
+      const nome = document.getElementById('sosNovoNome').value.trim();
+      const tel = document.getElementById('sosNovoTel').value.trim();
+      if (!nome || !tel) return;
+      contatosSOS.push({ nome, tel });
+      localStorage.setItem('rotalivre_sos', JSON.stringify(contatosSOS));
+      document.getElementById('sosNovoNome').value = '';
+      document.getElementById('sosNovoTel').value = '';
+      renderizarContatosSOS();
+    }
+
+    function removerContatoSOS(idx) {
+      contatosSOS.splice(idx, 1);
+      localStorage.setItem('rotalivre_sos', JSON.stringify(contatosSOS));
+      renderizarContatosSOS();
+    }
+
+    function dispararAlertaSOS() {
+      dispararVibracao('barreira');
+      const coords = `${origem.lat.toFixed(5)}, ${origem.lon.toFixed(5)}`;
+      document.getElementById('sosFeedback').innerHTML = `<div class="alert-box" style="border-color:var(--rose);background:rgba(225,29,72,0.2)"><strong>🚨 ALERTA SOS DISPARADO!</strong><br>Localização GPS (<code>${coords}</code>) enviada para <strong>${contatosSOS.length} contatos de confiança</strong> e Posto Municipal.</div>`;
+      responderFalado('Alerta S O S enviado com sua localização em tempo real.');
+    }
+
+    function aceitarLGPD() {
+      localStorage.setItem('rotalivre_lgpd_ok', 'true');
+      document.getElementById('lgpdConsentBar').classList.remove('visible');
+    }
+
+    function atualizarMarcadoresMapa() {
+      if (!map || !pontosLayer) return;
+      pontosLayer.clearLayers();
+      const postos = [
+        { nome: 'Posto de Apoio Subprefeitura / CRAS Central', distancia_m: 180, lat: origem.lat + 0.0012, lon: origem.lon - 0.0009 },
+        { nome: 'Estação Metrô Acessível (Agente de Apoio)', distancia_m: 260, lat: destino.lat - 0.0008, lon: destino.lon + 0.0007 }
+      ];
+      postos.forEach(p => {
+        L.circleMarker([p.lat, p.lon], { radius: 9, fillColor: '#38bdf8', color: '#0f172a', weight: 2, fillOpacity: 0.95 })
+          .addTo(pontosLayer).bindPopup(`<strong>🏛️ ${p.nome}</strong><br>Distância: ${p.distancia_m} m`);
+      });
+
+      L.circleMarker([origem.lat + 0.0006, origem.lon + 0.0005], { radius: 6, fillColor: '#fbbf24', color: '#0f172a', weight: 1.5, fillOpacity: 0.9 })
+        .addTo(pontosLayer).bindPopup('♿ Guia rebaixada NBR 9050');
+
+      relatosComunidade.forEach(r => {
+        L.circleMarker([r.lat, r.lon], { radius: 10, fillColor: '#fb7185', color: '#fff', weight: 2, fillOpacity: 0.95 })
+          .addTo(pontosLayer).bindPopup(criarHtmlPopupRelato(r));
+      });
+
+      document.getElementById('listaPostos').innerHTML = postos.map(p => `
+        <div class="posto-card">
+          <div><h4>🏛️ ${p.nome}</h4><p>A ${p.distancia_m} m • Apoio presencial</p></div>
+          <button class="mini-btn" onclick="definirDestinoPosto(${p.lat}, ${p.lon}, '${p.nome}')">Ir até lá</button>
+        </div>
+      `).join('');
+    }
+
+    async function calcularRotaAcessivel() {
+      if (!map) return;
+      const lista = document.getElementById('listaPassos');
+      lista.innerHTML = '<div class="step-card">Traçando rota acessível...</div>';
+
+      let distancia = Math.round(haversineMetros(origem.lat, origem.lon, destino.lat, destino.lon));
+      let duracaoMin = Math.max(1, Math.round(distancia / 65));
+      let geometry = {
+        type: 'LineString',
+        coordinates: [
+          [origem.lon, origem.lat],
+          [(origem.lon + destino.lon) / 2, origem.lat],
+          [destino.lon, destino.lat]
+        ]
+      };
+      let rawSteps = [
+        { name: 'Av. Paulista (calçada com piso tátil)', distance: Math.round(distancia * 0.6) },
+        { name: 'Travessia sinalizada e guia rebaixada', distance: Math.round(distancia * 0.4) }
+      ];
+
+      if (navigator.onLine) {
+        try {
+          const url = `https://router.project-osrm.org/route/v1/foot/${origem.lon},${origem.lat};${destino.lon},${destino.lat}?overview=full&geometries=geojson&steps=true`;
+          const resp = await fetch(url);
+          if (resp.ok) {
+            const json = await resp.json();
+            if (json.routes && json.routes.length) {
+              const route = json.routes[0];
+              distancia = Math.round(route.distance);
+              duracaoMin = Math.max(1, Math.round(route.duration / 60));
+              geometry = route.geometry;
+              rawSteps = route.legs[0].steps || rawSteps;
+            }
+          }
+        } catch (e) {}
+      }
+
+      const passos = rawSteps.map((s, idx) => {
+        const rua = s.name || 'calçada acessível';
+        const d = Math.round(s.distance || 40);
+        const instrucao = perfilAtual === 'cego'
+          ? `Siga por ${d} metros na ${rua}. Piso tátil direcional detectado.`
+          : `Avance ${d} metros pela ${rua}. Guia rebaixada (NBR 9050) confirmada.`;
+        const alerta = perfilAtual === 'cego'
+          ? (idx === rawSteps.length - 1 ? '2 vibrações curtas: travessia sinalizada' : 'Guia sonora ativa')
+          : 'Inclinação segura (< 8,33%)';
+        return { ordem: idx + 1, instrucao_voz: instrucao, alerta_haptico: alerta, distancia_metros: d };
+      });
+
+      ultimaRotaData = { distancia_total_metros: distancia, tempo_estimado_minutos: duracaoMin, passos, geometria_geojson: geometry };
+      localStorage.setItem('rotalivre_ultima_rota', JSON.stringify(ultimaRotaData));
+
+      document.getElementById('metricIndice').textContent = '94,5%';
+      document.getElementById('metricDist').textContent = `${distancia} m • ${duracaoMin} min`;
+      document.getElementById('metricInfra').textContent = '8R • 6T';
+
+      if (rotaLayer) map.removeLayer(rotaLayer);
+      if (rotaGlowLayer) map.removeLayer(rotaGlowLayer);
+      rotaGlowLayer = L.geoJSON(geometry, { style: { color: '#10b981', weight: 14, opacity: 0.3 } }).addTo(map);
+      rotaLayer = L.geoJSON(geometry, { style: { color: '#059669', weight: 6, opacity: 0.95 } }).addTo(map);
+      map.fitBounds(rotaLayer.getBounds(), { padding: [55, 55] });
+
+      atualizarMarcadoresMapa();
+
+      lista.innerHTML = passos.map(p => `
+        <div class="step-card">
+          <div><strong>${p.ordem}.</strong> ${p.instrucao_voz}</div>
+          <div class="chip-row">
+            <span class="chip sky">📳 ${p.alerta_haptico}</span>
+            <span class="chip">♿ Guia Rebaixada</span>
+            <span class="chip amber">🦯 Piso Tátil</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function dispararVibracao(tipo) {
+      const hud = document.getElementById('liveNavHud');
+      hud.classList.remove('haptic-flash');
+      void hud.offsetWidth;
+      hud.classList.add('haptic-flash');
+      if ('vibrate' in navigator) navigator.vibrate(tipo === 'barreira' ? [250, 100, 250, 100, 250] : [140, 80, 140]);
+    }
+
+    function verificarBarreirasProximas(latAtual, lonAtual, forcarDemo = false) {
+      const banner = document.getElementById('barrierWarningBanner');
+      let found = null;
+      for (const b of relatosComunidade) {
+        const d = haversineMetros(latAtual, lonAtual, b.lat, b.lon);
+        if (d <= 60) { found = { ...b, dist: Math.round(d) }; break; }
+      }
+      if (!found && forcarDemo && relatosComunidade.length) found = { ...relatosComunidade[0], dist: 25 };
+
+      if (found) {
+        banner.innerHTML = `⚠️ ALERTA DE BARREIRA A ${found.dist} m: ${found.descricao}`;
+        banner.classList.add('visible');
+        dispararVibracao('barreira');
+        responderFalado(`Atenção! Barreira reportada a ${found.dist} metros à frente: ${found.descricao}.`);
+        return true;
+      }
+      banner.classList.remove('visible');
+      return false;
+    }
+
+    function renderizarPassoNavegacao(anunciar = true) {
+      if (!ultimaRotaData || !ultimaRotaData.passos.length) return;
+      const passos = ultimaRotaData.passos;
+      const passo = passos[Math.min(navPassoIndex, passos.length - 1)];
+      const distRestante = passos.slice(navPassoIndex).reduce((a, p) => a + p.distancia_metros, 0);
+      const etaMin = Math.max(1, Math.round(distRestante / 65));
+
+      document.getElementById('navStepCounter').textContent = `Passo ${navPassoIndex + 1} de ${passos.length}`;
+      document.getElementById('navStepKicker').textContent = navPassoIndex === passos.length - 1 ? '🏁 Chegada ao destino' : `➡️ Próximo passo (${passo.distancia_metros} m)`;
+      document.getElementById('navStepBigText').textContent = passo.instrucao_voz;
+      document.getElementById('navHapticTag').textContent = `📳 ${passo.alerta_haptico}`;
+      document.getElementById('navDistRemaining').textContent = `${distRestante} m`;
+      document.getElementById('navEtaRemaining').textContent = `${etaMin} min`;
+      document.getElementById('navProgressFill').style.width = `${Math.round(((navPassoIndex + 1) / passos.length) * 100)}%`;
+
+      if (anunciar && !navPausada) {
+        dispararVibracao('curva');
+        const temBarreira = verificarBarreirasProximas(origem.lat, origem.lon, navPassoIndex === 1);
+        if (!temBarreira) responderFalado(`Passo ${navPassoIndex + 1}. ${passo.instrucao_voz}`);
+      }
+    }
+
+    function iniciarNavegacaoAoVivo() {
+      if (!ultimaRotaData) return;
+      navAtiva = true; navPausada = false; navPassoIndex = 0;
+      const hud = document.getElementById('liveNavHud');
+      hud.classList.add('active'); hud.classList.remove('paused');
+      document.getElementById('btnPauseNav').textContent = '⏸️ Pausar';
+      document.getElementById('navStatusBadge').innerHTML = '<span class="live-dot" aria-hidden="true"></span> Navegação ao Vivo';
+
+      if ('geolocation' in navigator) {
+        gpsWatchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            if (!navAtiva || navPausada) return;
+            const { latitude, longitude, accuracy } = pos.coords;
+            document.getElementById('gpsStatusLabel').textContent = `🛰️ GPS real ativo (±${Math.round(accuracy)} m)`;
+            if (!userGpsMarker) userGpsMarker = L.circleMarker([latitude, longitude], { radius: 8, fillColor: '#38bdf8', color: '#fff', weight: 3, fillOpacity: 1 }).addTo(map);
+            else userGpsMarker.setLatLng([latitude, longitude]);
+            verificarBarreirasProximas(latitude, longitude, false);
+          },
+          () => { document.getElementById('gpsStatusLabel').textContent = '🛰️ GPS simulado (use "Próximo Passo")'; },
+          { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+        );
+      }
+      renderizarPassoNavegacao(true);
+    }
+
+    function alternarPausaNavegacao() {
+      if (!navAtiva) return;
+      navPausada = !navPausada;
+      document.getElementById('liveNavHud').classList.toggle('paused', navPausada);
+      document.getElementById('btnPauseNav').textContent = navPausada ? '▶️ Retomar' : '⏸️ Pausar';
+      document.getElementById('navStatusBadge').innerHTML = navPausada ? '⏸️ Navegação Pausada' : '<span class="live-dot" aria-hidden="true"></span> Navegação ao Vivo';
+      responderFalado(navPausada ? 'Navegação pausada.' : 'Navegação retomada.');
+    }
+
+    function encerrarNavegacaoAoVivo() {
+      navAtiva = false; navPausada = false;
+      if (gpsWatchId !== null && 'geolocation' in navigator) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+      if (userGpsMarker && map) { map.removeLayer(userGpsMarker); userGpsMarker = null; }
+      document.getElementById('liveNavHud').classList.remove('active', 'paused');
+      document.getElementById('barrierWarningBanner').classList.remove('visible');
+    }
+
+    function avancarPassoSimulado() {
+      if (!navAtiva || !ultimaRotaData) return;
+      if (navPausada) alternarPausaNavegacao();
+      if (navPassoIndex < ultimaRotaData.passos.length - 1) { navPassoIndex++; renderizarPassoNavegacao(true); }
+      else { responderFalado('Você chegou ao destino acessível!'); encerrarNavegacaoAoVivo(); }
+    }
+
+    function repetirInstrucaoAtual() {
+      if (navAtiva && ultimaRotaData) responderFalado(ultimaRotaData.passos[navPassoIndex].instrucao_voz);
+    }
+
     function atualizarUIMicrofone(estado, statusTexto, transcricaoTexto) {
       const bar = document.getElementById('voiceLiveBar');
       const waves = document.getElementById('waveBars');
-      const statusEl = document.getElementById('voiceStatusText');
-      const transEl = document.getElementById('voiceTranscript');
       const btn = document.getElementById('btnMicPrincipal');
-      const label = document.getElementById('micLabel');
-
       bar.classList.add('visible');
       bar.classList.remove('listening', 'error');
       btn.classList.remove('listening', 'speaking');
 
-      if (estado === 'listening') {
-        bar.classList.add('listening');
-        waves.classList.remove('paused');
-        btn.classList.add('listening');
-        btn.setAttribute('aria-pressed', 'true');
-        label.textContent = 'Ouvindo...';
-      } else if (estado === 'speaking') {
-        waves.classList.add('paused');
-        btn.classList.add('speaking');
-        btn.setAttribute('aria-pressed', 'false');
-        label.textContent = 'Respondendo...';
-      } else if (estado === 'error') {
-        bar.classList.add('error');
-        waves.classList.add('paused');
-        btn.setAttribute('aria-pressed', 'false');
-        label.textContent = 'Comando de Voz';
-      } else {
-        waves.classList.add('paused');
-        btn.setAttribute('aria-pressed', 'false');
-        label.textContent = 'Comando de Voz';
-      }
+      if (estado === 'listening') { bar.classList.add('listening'); waves.classList.remove('paused'); btn.classList.add('listening'); btn.setAttribute('aria-pressed', 'true'); document.getElementById('micLabel').textContent = 'Ouvindo...'; }
+      else if (estado === 'speaking') { waves.classList.add('paused'); btn.classList.add('speaking'); btn.setAttribute('aria-pressed', 'false'); document.getElementById('micLabel').textContent = 'Falando...'; }
+      else { if (estado === 'error') bar.classList.add('error'); waves.classList.add('paused'); btn.setAttribute('aria-pressed', 'false'); document.getElementById('micLabel').textContent = 'Voz'; }
 
-      if (statusTexto) statusEl.textContent = statusTexto;
-      if (transcricaoTexto) transEl.textContent = transcricaoTexto;
+      if (statusTexto) document.getElementById('voiceStatusText').textContent = statusTexto;
+      if (transcricaoTexto) document.getElementById('voiceTranscript').textContent = transcricaoTexto;
     }
 
-    function fecharBarraVoz() {
-      pararMicrofone();
-      document.getElementById('voiceLiveBar').classList.remove('visible');
-    }
+    function fecharBarraVoz() { pararMicrofone(); document.getElementById('voiceLiveBar').classList.remove('visible'); }
+    function pararMicrofone() { if (recognition && isListening) { try { recognition.abort(); } catch (e) {} } isListening = false; }
 
-    function pararMicrofone() {
-      if (recognition && isListening) {
-        try { recognition.abort(); } catch (e) {}
-      }
-      isListening = false;
-    }
-
-    // 4. Resposta falada, pausando o microfone automaticamente
     function responderFalado(texto) {
       pararMicrofone();
       atualizarUIMicrofone('speaking', '🔊 Respondendo por voz (microfone pausado)', texto);
-
-      if (!('speechSynthesis' in window)) {
-        atualizarUIMicrofone('idle', 'Pronto', texto);
-        return;
-      }
-
+      if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(texto);
       utter.lang = 'pt-BR';
-      utter.rate = 1.02;
-
       isSpeaking = true;
-      utter.onend = () => {
-        isSpeaking = false;
-        atualizarUIMicrofone('idle', 'Microfone pronto (Alt+M para falar novamente)', texto);
-      };
-      utter.onerror = () => {
-        isSpeaking = false;
-        atualizarUIMicrofone('idle', 'Microfone pronto', texto);
-      };
+      utter.onend = () => { isSpeaking = false; atualizarUIMicrofone('idle', 'Microfone pronto (Alt+M)', texto); };
+      utter.onerror = () => { isSpeaking = false; };
       window.speechSynthesis.speak(utter);
     }
 
-    // 3. Função executar(cmd) ligada às ações do app
     function executar(cmd) {
-      const comando = (cmd || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-
-      if (!comando) return;
-
-      if (comando.includes('ajuda') || comando.includes('o que posso dizer') || comando.includes('comandos')) {
-        abrirModalAjuda();
-        responderFalado('Abrindo a lista de comandos de voz disponíveis.');
-        return;
-      }
-
-      if (comando.includes('cego') || comando.includes('visual') || comando.includes('tatil')) {
-        selecionarPerfil('cego');
-        switchTab('rota', document.getElementById('tab-rota'));
-        responderFalado('Perfil pessoa cega ativado. Calculando rota com prioridade para piso tátil e alertas sonoros.');
-        return;
-      }
-
-      if (comando.includes('cadeirante') || comando.includes('cadeira') || comando.includes('rampa')) {
-        selecionarPerfil('cadeirante');
-        switchTab('rota', document.getElementById('tab-rota'));
-        responderFalado('Perfil cadeirante ativado. Calculando rota com guias rebaixadas e inclinação segura.');
-        return;
-      }
-
-      if (comando.includes('calcular') || comando.includes('tracar') || comando.includes('rota')) {
-        switchTab('rota', document.getElementById('tab-rota'));
-        calcularRotaAcessivel();
-        responderFalado('Calculando a rota acessível em tempo real pelo OpenStreetMap.');
-        return;
-      }
-
-      if (comando.includes('ler') || comando.includes('ouvir') || comando.includes('instruc') || comando.includes('guia')) {
-        lerRotaEmVozAlta();
-        return;
-      }
-
-      if (comando.includes('voluntario') || comando.includes('acompanh') || comando.includes('agente')) {
-        switchTab('apoio', document.getElementById('tab-apoio'));
-        solicitarVoluntario();
-        responderFalado('Buscando um voluntário verificado pelo Gov BR e o posto da prefeitura mais próximo.');
-        return;
-      }
-
-      if (comando.includes('posto') || comando.includes('prefeitura') || comando.includes('apoio') || comando.includes('cras')) {
-        switchTab('apoio', document.getElementById('tab-apoio'));
-        responderFalado('Abrindo a aba de apoio humano e postos da prefeitura próximos.');
-        return;
-      }
-
-      if (comando.includes('reportar') || comando.includes('barreira') || comando.includes('buraco') || comando.includes('156')) {
-        switchTab('zeladoria', document.getElementById('tab-zeladoria'));
-        reportarBarreira();
-        responderFalado('Registrando a barreira urbana e abrindo protocolo automático no Portal 156 da prefeitura.');
-        return;
-      }
-
-      if (comando.includes('contraste')) {
-        const ativo = toggleContrast();
-        responderFalado(ativo ? 'Modo de alto contraste ativado.' : 'Modo de alto contraste desativado.');
-        return;
-      }
-
-      if (comando.includes('fonte') || comando.includes('texto') || comando.includes('aumentar')) {
-        const ativo = toggleFontSize();
-        responderFalado(ativo ? 'Tamanho do texto aumentado.' : 'Tamanho do texto restaurado ao padrão.');
-        return;
-      }
-
-      if (comando.includes('fechar')) {
-        fecharModalAjuda();
-        fecharBarraVoz();
-        return;
-      }
-
-      responderFalado(`Não reconheci o comando "${cmd}". Diga "ajuda" ou clique em "O que posso dizer?" para ver os comandos aceitos.`);
+      const c = (cmd || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+      if (!c) return;
+      if (c.includes('sos') || c.includes('emergencia')) { abrirModal('modalSOS'); dispararAlertaSOS(); return; }
+      if (c.includes('iniciar') || c.includes('navegar')) { iniciarNavegacaoAoVivo(); return; }
+      if (c.includes('pausar') || c.includes('retomar')) { alternarPausaNavegacao(); return; }
+      if (c.includes('encerrar')) { encerrarNavegacaoAoVivo(); responderFalado('Navegação encerrada.'); return; }
+      if (c.includes('proximo passo')) { avancarPassoSimulado(); return; }
+      if (c.includes('ajuda') || c.includes('o que posso dizer')) { abrirModal('modalAjudaVoz'); responderFalado('Abrindo comandos de voz disponíveis.'); return; }
+      if (c.includes('cego')) { selecionarPerfil('cego'); switchTab('rota', document.getElementById('tab-rota')); responderFalado('Perfil pessoa cega ativado.'); return; }
+      if (c.includes('cadeirante')) { selecionarPerfil('cadeirante'); switchTab('rota', document.getElementById('tab-rota')); responderFalado('Perfil cadeirante ativado.'); return; }
+      if (c.includes('voluntario')) { switchTab('apoio', document.getElementById('tab-apoio')); solicitarVoluntario(); responderFalado('Solicitando voluntário verificado.'); return; }
+      if (c.includes('barreira') || c.includes('156')) { switchTab('zeladoria', document.getElementById('tab-zeladoria')); reportarBarreira(); responderFalado('Registrando barreira no Portal 156.'); return; }
+      if (c.includes('contraste')) { const a = toggleContrast(); responderFalado(a ? 'Alto contraste ativado.' : 'Alto contraste desativado.'); return; }
+      responderFalado(`Não reconheci "${cmd}". Diga "ajuda" para ver os comandos.`);
     }
 
     function iniciarMicrofone() {
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-      // 6. Estado de erro: navegador sem suporte
-      if (!SpeechRec) {
-        atualizarUIMicrofone(
-          'error',
-          '⚠️ Reconhecimento de voz indisponível neste navegador',
-          'Use Google Chrome ou Microsoft Edge para comandos por voz, ou clique em "O que posso dizer?" para testar os comandos por toque.'
-        );
-        return;
-      }
-
-      if (isSpeaking && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        isSpeaking = false;
-      }
-
+      if (!SpeechRec) { atualizarUIMicrofone('error', '⚠️ Navegador sem suporte a voz', 'Use Chrome/Edge ou clique em "Comandos".'); return; }
+      if (isSpeaking && 'speechSynthesis' in window) { window.speechSynthesis.cancel(); isSpeaking = false; }
       recognition = new SpeechRec();
-      recognition.lang = 'pt-BR';
-      recognition.interimResults = true;
-      recognition.continuous = false;
-
-      recognition.onstart = () => {
-        isListening = true;
-        atualizarUIMicrofone('listening', '🎙️ Ouvindo... fale seu comando agora', 'Aguardando sua fala...');
+      recognition.lang = 'pt-BR'; recognition.interimResults = true; recognition.continuous = false;
+      recognition.onstart = () => { isListening = true; atualizarUIMicrofone('listening', '🎙️ Ouvindo... fale agora', 'Aguardando sua fala...'); };
+      recognition.onresult = (e) => {
+        let interim = '', finalT = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) finalT += e.results[i][0].transcript; else interim += e.results[i][0].transcript;
+        }
+        if (interim) atualizarUIMicrofone('listening', '🎙️ Transcrevendo ao vivo...', `"${interim}"`);
+        if (finalT) { isListening = false; atualizarUIMicrofone('idle', '✅ Comando reconhecido', `Você disse: "${finalT.trim()}"`); executar(finalT.trim()); }
       };
-
-      recognition.onresult = (event) => {
-        let interim = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const t = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += t;
-          } else {
-            interim += t;
-          }
-        }
-
-        if (interim) {
-          atualizarUIMicrofone('listening', '🎙️ Transcrevendo ao vivo...', `"${interim}"`);
-        }
-
-        if (finalTranscript) {
-          isListening = false;
-          atualizarUIMicrofone('idle', '✅ Comando reconhecido', `Você disse: "${finalTranscript.trim()}"`);
-          executar(finalTranscript.trim());
-        }
-      };
-
-      // 6. Estados de erro detalhados
-      recognition.onerror = (event) => {
-        isListening = false;
-        let msg = 'Ocorreu um erro ao capturar o áudio. Tente novamente.';
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          msg = 'Permissão de microfone negada. Libere o acesso ao microfone no cadeado da barra de endereço do navegador.';
-        } else if (event.error === 'no-speech') {
-          msg = 'Nenhuma fala foi detectada. Pressione Alt+M e fale próximo ao microfone.';
-        } else if (event.error === 'audio-capture') {
-          msg = 'Nenhum microfone encontrado no dispositivo. Verifique sua conexão de áudio.';
-        } else if (event.error === 'network') {
-          msg = 'Erro de rede no serviço de reconhecimento de voz. Verifique sua conexão.';
-        }
-        atualizarUIMicrofone('error', `⚠️ Erro de voz (${event.error})`, msg);
-      };
-
-      recognition.onend = () => {
-        isListening = false;
-        if (!isSpeaking) {
-          const btn = document.getElementById('btnMicPrincipal');
-          btn.classList.remove('listening');
-          btn.setAttribute('aria-pressed', 'false');
-          document.getElementById('micLabel').textContent = 'Comando de Voz';
-          document.getElementById('waveBars').classList.add('paused');
-        }
-      };
-
-      try {
-        recognition.start();
-      } catch (e) {
-        atualizarUIMicrofone('error', '⚠️ Erro ao iniciar microfone', 'Não foi possível iniciar a captura. Tente novamente.');
-      }
+      recognition.onerror = (e) => { isListening = false; atualizarUIMicrofone('error', `⚠️ Erro (${e.error})`, 'Verifique a permissão do microfone.'); };
+      recognition.onend = () => { isListening = false; if (!isSpeaking) { document.getElementById('btnMicPrincipal').classList.remove('listening'); document.getElementById('micLabel').textContent = 'Voz'; } };
+      try { recognition.start(); } catch (e) {}
     }
 
-    function alternarMicrofone() {
-      if (isListening) {
-        pararMicrofone();
-        atualizarUIMicrofone('idle', 'Microfone pausado', 'Captura interrompida. Pressione Alt+M para falar novamente.');
-      } else {
-        iniciarMicrofone();
-      }
-    }
-
-    // Atalho de teclado acessível: Alt+M para microfone e Escape para fechar modal
+    function alternarMicrofone() { if (isListening) { pararMicrofone(); atualizarUIMicrofone('idle', 'Microfone pausado', 'Pressione Alt+M para falar.'); } else iniciarMicrofone(); }
     document.addEventListener('keydown', (e) => {
-      if (e.altKey && (e.key === 'm' || e.key === 'M')) {
-        e.preventDefault();
-        alternarMicrofone();
-      } else if (e.key === 'Escape') {
-        fecharModalAjuda();
+      if (e.altKey && (e.key === 'm' || e.key === 'M')) { e.preventDefault(); alternarMicrofone(); }
+      else if (e.key === 'Escape') {
+        ['modalAjudaVoz', 'modalInstalarApp', 'modalVoluntario', 'modalSOS'].forEach(fecharModal);
       }
     });
-
-    // 5. Modal "O que posso dizer?"
-    function abrirModalAjuda() {
-      document.getElementById('modalAjudaVoz').classList.add('open');
-    }
-
-    function fecharModalAjuda() {
-      document.getElementById('modalAjudaVoz').classList.remove('open');
-    }
-
-    function testarComandoModal(cmd) {
-      fecharModalAjuda();
-      atualizarUIMicrofone('idle', '✅ Comando selecionado', `Executando: "${cmd}"`);
-      executar(cmd);
-    }
-
-    // =========================================================
-    // INTEGRAÇÃO COM A API FASTAPI (OSM + OSRM + PORTAL 156)
-    // =========================================================
-    async function calcularRotaAcessivel() {
-      const lista = document.getElementById('listaPassos');
-      lista.innerHTML = '<div class="step-card">Consultando piso tátil, guias rebaixadas e postos públicos no OpenStreetMap...</div>';
-
-      try {
-        const resp = await fetch('/rotas/acessivel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ origem, destino, perfil: perfilAtual })
-        });
-        const data = await resp.json();
-
-        document.getElementById('metricIndice').textContent = `${data.indice_acessibilidade}%`;
-        document.getElementById('metricDist').textContent = `${data.distancia_total_metros}m • ${data.tempo_estimado_minutos}m`;
-        const infra = data.infraestrutura_detectada_osm;
-        document.getElementById('metricInfra').textContent = `${infra.rampas_rebaixadas}R • ${infra.trechos_piso_tatil}T`;
-
-        if (rotaLayer) map.removeLayer(rotaLayer);
-        if (rotaGlowLayer) map.removeLayer(rotaGlowLayer);
-
-        rotaGlowLayer = L.geoJSON(data.geometria_geojson, {
-          style: { color: '#10b981', weight: 14, opacity: 0.22 }
-        }).addTo(map);
-
-        rotaLayer = L.geoJSON(data.geometria_geojson, {
-          style: { color: '#10b981', weight: 5, opacity: 0.95 }
-        }).addTo(map);
-
-        map.fitBounds(rotaLayer.getBounds(), { paddingTopLeft: [450, 90], paddingBottomRight: [40, 40] });
-
-        pontosLayer.clearLayers();
-        const postos = infra.postos_apoio_proximos || [];
-        postos.forEach(posto => {
-          if (posto.lat && posto.lon) {
-            L.circleMarker([posto.lat, posto.lon], {
-              radius: 9, fillColor: '#38bdf8', color: '#0f172a', weight: 2, fillOpacity: 0.95
-            }).addTo(pontosLayer).bindPopup(`<strong>🏛️ ${posto.nome}</strong><br>Distância: ${posto.distancia_m}m`);
-          }
-        });
-
-        const listaPostosEl = document.getElementById('listaPostos');
-        listaPostosEl.innerHTML = postos.map(p => `
-          <div class="posto-card">
-            <div>
-              <h4>🏛️ ${p.nome}</h4>
-              <p>A ${p.distancia_m}m do ponto inicial • Apoio presencial</p>
-            </div>
-            ${p.lat && p.lon ? `<button class="mini-btn" onclick="definirDestinoPosto(${p.lat}, ${p.lon}, '${p.nome.replace(/'/g, '')}')">Ir até lá</button>` : ''}
-          </div>
-        `).join('');
-
-        (infra.marcadores_infra || []).forEach(m => {
-          L.circleMarker([m.lat, m.lon], {
-            radius: 5, fillColor: '#f59e0b', color: '#0f172a', weight: 1.5, fillOpacity: 0.9
-          }).addTo(pontosLayer).bindPopup(`♿ ${m.label}`);
-        });
-
-        ultimasInstrucoes = data.passos.map(p => p.instrucao_voz);
-        lista.innerHTML = data.passos.map(p => `
-          <div class="step-card">
-            <div><strong>${p.ordem}.</strong> ${p.instrucao_voz}</div>
-            <div class="chip-row">
-              ${p.alerta_haptico ? `<span class="chip sky">📳 ${p.alerta_haptico}</span>` : ''}
-              ${p.possui_rampa ? `<span class="chip">♿ Guia Rebaixada</span>` : ''}
-              ${p.possui_piso_tatil ? `<span class="chip amber">🦯 Piso Tátil</span>` : ''}
-            </div>
-          </div>
-        `).join('');
-      } catch (err) {
-        lista.innerHTML = '<div class="step-card">Não foi possível conectar ao servidor FastAPI. Verifique se o back-end está rodando.</div>';
-      }
-    }
-
-    function lerRotaEmVozAlta() {
-      const texto = ultimasInstrucoes.length
-        ? `Rota acessível para perfil ${perfilAtual}. ` + ultimasInstrucoes.join(' ')
-        : 'Bem-vindo ao RotaLivre. Selecione seu perfil e calcule uma rota acessível.';
-      responderFalado(texto);
-    }
+    function testarComandoModal(cmd) { fecharModal('modalAjudaVoz'); executar(cmd); }
 
     function ditarRelatoPorVoz() {
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRec) {
-        document.getElementById('descBarreira').value = 'Calçada obstruída e sem rampa de acesso próximo ao cruzamento.';
-        return;
-      }
+      if (!SpeechRec) return;
       pararMicrofone();
-      const rec = new SpeechRec();
-      rec.lang = 'pt-BR';
-      rec.onresult = (e) => {
-        document.getElementById('descBarreira').value = e.results[0][0].transcript;
-      };
+      const rec = new SpeechRec(); rec.lang = 'pt-BR';
+      rec.onresult = (e) => { document.getElementById('descBarreira').value = e.results[0][0].transcript; };
       rec.start();
     }
 
-    async function solicitarVoluntario() {
-      const box = document.getElementById('resultadoVoluntario');
-      box.innerHTML = '<div class="alert-box">Localizando voluntário verificado (Gov.br) e posto municipal...</div>';
-      try {
-        const resp = await fetch('/acompanhamento/solicitar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cidadao_nome: 'Cidadão RotaLivre',
-            perfil: perfilAtual,
-            ponto_encontro: origem,
-            destino_descricao: 'Acompanhamento urbano assistido'
-          })
-        });
-        const data = await resp.json();
-        box.innerHTML = `
-          <div class="alert-box">
-            <strong>🤝 Acompanhante Confirmado!</strong><br>
-            ${data.nome_responsavel}<br>
-            <strong>Posto de Referência:</strong> ${data.posto_referencia}<br>
-            <strong>Previsão:</strong> ${data.tempo_chegada_minutos} min • <strong>Senha de Voz:</strong> <code>${data.codigo_verificacao_voz}</code>
-          </div>
-        `;
-      } catch (e) {
-        box.innerHTML = '<div class="alert-box">Erro ao conectar ao serviço de voluntários.</div>';
-      }
+    function solicitarVoluntario() {
+      const local = document.getElementById('apoioLocal').value;
+      const tipo = document.getElementById('apoioTipo').value;
+      const respNome = tipo === 'posto_prefeitura'
+        ? 'Agente Municipal Helena Costa (Posto CRAS / Subprefeitura)'
+        : 'Carlos Mendes (Voluntário Verificado Gov.br • 4,9★)';
+      document.getElementById('resultadoVoluntario').innerHTML = `<div class="alert-box"><strong>🤝 Apoio confirmado!</strong><br>${respNome}<br><strong>Encontro:</strong> ${local}<br><strong>Previsão:</strong> 4 min • <strong>Senha de voz:</strong> <code>ROTA-482</code></div>`;
     }
 
-    async function reportarBarreira() {
-      const box = document.getElementById('resultadoOcorrencia');
+    function reportarBarreira() {
       const tipo = document.getElementById('tipoBarreira').value;
       const desc = document.getElementById('descBarreira').value;
-      try {
-        const resp = await fetch('/ocorrencias', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            localizacao: destino,
-            tipo_barreira: tipo,
-            descricao_voz: desc
-          })
-        });
-        const data = await resp.json();
-        L.circleMarker([destino.lat, destino.lon], {
-          radius: 10, fillColor: '#f43f5e', color: '#fff', weight: 2, fillOpacity: 0.95
-        }).addTo(pontosLayer).bindPopup(`⚠️ Barreira Reportada • Protocolo ${data.protocolo_prefeitura_156}`).openPopup();
+      const proto = `156-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+      const novoRelato = {
+        id: `RL-${Math.floor(200 + Math.random() * 800)}`,
+        lat: destino.lat,
+        lon: destino.lon,
+        tipo,
+        titulo: tipo.replace(/_/g, ' ').toUpperCase(),
+        descricao: desc,
+        status: 'pendente',
+        protocolo: proto,
+        foto: fotoComprimidaBase64 || fotoExemploSvg
+      };
 
-        box.innerHTML = `
-          <div class="alert-box" style="border-color:var(--amber)">
-            <strong>📨 Protocolo Aberto na Prefeitura!</strong><br>
-            ${data.mensagem}
-          </div>
-        `;
-      } catch (e) {
-        box.innerHTML = '<div class="alert-box">Erro ao enviar ocorrência ao Portal 156.</div>';
+      relatosComunidade.unshift(novoRelato);
+      renderizarModeracao();
+      atualizarMarcadoresMapa();
+      if (map && pontosLayer) {
+        L.marker([destino.lat, destino.lon], { opacity: 0 }).addTo(pontosLayer).bindPopup(criarHtmlPopupRelato(novoRelato)).openPopup();
       }
+
+      document.getElementById('resultadoOcorrencia').innerHTML = `<div class="alert-box" style="border-color:var(--amber)"><strong>📨 Protocolo aberto (${proto})!</strong><br>Relato com foto publicado no mapa e enviado para a fila de moderação.</div>`;
+      limparFotoBarreira();
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      atualizarStatusConexao();
       atualizarTextoCoordenadas(presets.paulista.nomeOrig, presets.paulista.nomeDest);
-      calcularRotaAcessivel();
+      renderizarModeracao();
+      renderizarContatosSOS();
+
+      const savedUser = JSON.parse(localStorage.getItem('rotalivre_user') || 'null');
+      if (savedUser && savedUser.nome) {
+        liberarAplicativo(savedUser.nome, savedUser.perfil);
+      }
     });
   </script>
 </body>
