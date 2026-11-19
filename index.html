@@ -8,6 +8,7 @@
   <title>RotaLivre – CitizenTech Urbano | Mobilidade Acessível</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="manifest" href="./manifest.json" />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1684,5 +1685,13 @@
   <script src="js/voz.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/simulador.js"></script>
+
+  <script src="js/offline.js"></script>
+  <script>
+    if (window.RL && RL.offline) {
+      RL.offline.registrarServiceWorker();
+      RL.offline.cachearRegiaoMapa();
+    }
+  </script>
 </body>
 </html>
