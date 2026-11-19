@@ -1329,8 +1329,20 @@
     function dispararAlertaSOS() {
       dispararVibracao('barreira');
       const coords = `${origem.lat.toFixed(5)}, ${origem.lon.toFixed(5)}`;
-      document.getElementById('sosFeedback').innerHTML = `<div class="alert-box" style="border-color:var(--rose);background:rgba(225,29,72,0.2)"><strong>🚨 ALERTA SOS DISPARADO!</strong><br>Localização GPS (<code>${coords}</code>) enviada para <strong>${contatosSOS.length} contatos de confiança</strong> e Posto Municipal.</div>`;
-      responderFalado('Alerta S O S enviado com sua localização em tempo real.');
+      const links = window.RL?.comunidade
+        ? RL.comunidade.gerarLinksSOS(origem, contatosSOS[0])
+        : { whatsappUrl: `https://wa.me/?text=SOS%20${coords}`, smsUrl: `sms:?body=SOS%20${coords}` };
+
+      document.getElementById('sosFeedback').innerHTML = `
+        <div class="alert-box" style="border-color:var(--rose);background:rgba(225,29,72,0.2)">
+          <strong>🚨 ALERTA SOS DISPARADO!</strong><br>
+          Localização GPS (<code>${coords}</code>) pronta para envio:<br>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <a href="${links.whatsappUrl}" target="_blank" rel="noopener" class="mini-btn success" style="text-decoration:none">💬 Enviar via WhatsApp</a>
+            <a href="${links.smsUrl}" class="mini-btn" style="text-decoration:none">📩 Enviar via SMS</a>
+          </div>
+        </div>`;
+      responderFalado('Alerta S O S gerado com sua localização. Toque para enviar via WhatsApp ou S M S.');
     }
 
     function aceitarLGPD() {
@@ -1693,5 +1705,7 @@
       RL.offline.cachearRegiaoMapa();
     }
   </script>
+
+  <script src="js/comunidade.js"></script>
 </body>
 </html>
