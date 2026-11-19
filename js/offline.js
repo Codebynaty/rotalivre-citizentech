@@ -1,4 +1,6 @@
-window.RL = window.RL || {};
+const RL = (typeof window !== 'undefined' ? window.RL : global.RL) || {};
+if (typeof window !== 'undefined') window.RL = RL;
+if (typeof global !== 'undefined') global.RL = RL;
 
 RL.offline = (function () {
   const CHAVE_FILA = "rotalivre_fila_offline_v1";

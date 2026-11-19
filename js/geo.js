@@ -1,5 +1,7 @@
 // js/geo.js
-window.RL = window.RL || {};
+const RL = (typeof window !== 'undefined' ? window.RL : global.RL) || {};
+if (typeof window !== 'undefined') window.RL = RL;
+if (typeof global !== 'undefined') global.RL = RL;
 
 RL.geo = (function () {
   const LUGARES_CONHECIDOS = {

@@ -1,4 +1,6 @@
-window.RL = window.RL || {};
+const RL = (typeof window !== 'undefined' ? window.RL : global.RL) || {};
+if (typeof window !== 'undefined') window.RL = RL;
+if (typeof global !== 'undefined') global.RL = RL;
 
 RL.voz = (function () {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -83,7 +85,7 @@ RL.voz = (function () {
     }
 
     // Reportar barreira (sincronizado com #tipoBarreira do index.html)
-    if (/\b(reportar|registrar|avisar|barreira|buraco|rampa|tatil|obra|veiculo|156)\b/.test(texto)) {
+    if (/\b(reportar|registrar|avisar|barreira|buraco|calcada|quebrada|rampa|tatil|obra|veiculo|156)\b/.test(texto)) {
       let tipo = "sem_rampa";
       if (/\b(buraco|quebrada|irregular)\b/.test(texto)) tipo = "calcada_quebrada";
       else if (/\b(tatil|piso tatil)\b/.test(texto)) tipo = "piso_tatil_interrompido";
