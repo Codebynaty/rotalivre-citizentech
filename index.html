@@ -1,495 +1,1598 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RotaLivre — Navegação Urbana Acessível</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="">
-<style>
-  :root{
-    --bg:#0e1621; --sup:#16212e; --sup2:#1d2a3a; --card:#1b2735; --borda:#2a3b50;
-    --texto:#eaf1f8; --suave:#9fb2c6; --fraco:#6a7e93;
-    --acento:#2ea6ff; --acento2:#1b78c2; --ok:#2e9e5b; --alerta:#fb8c00; --perigo:#e5484d;
-    --buraco:#e5484d; --rampa:#fb8c00; --tatil:#f4c020; --obra:#8b5cf6; --voluntario:#2ea6ff; --posto:#2e9e5b;
-    --escala:1;
-  }
-  :root[data-tema="claro"]{
-    --bg:#eef3f8; --sup:#ffffff; --sup2:#f3f7fb; --card:#ffffff; --borda:#d8e2ec;
-    --texto:#132132; --suave:#51657a; --fraco:#8296aa;
-  }
-  :root[data-contraste="alto"]{
-    --bg:#000; --sup:#000; --sup2:#0a0a0a; --card:#0a0a0a; --borda:#ffd400;
-    --texto:#fff; --suave:#ffe84d; --fraco:#ffe84d; --acento:#ffd400; --acento2:#ffd400;
-  }
-  *{ box-sizing:border-box; }
-  html,body{ margin:0; height:100%; }
-  body{ font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--texto);
-        display:flex; flex-direction:column; height:100vh; font-size:calc(15px*var(--escala)); overflow:hidden; }
-  button{ font-family:inherit; }
-  :focus-visible{ outline:3px solid var(--acento); outline-offset:2px; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RotaLivre – CitizenTech Urbano | Mobilidade Acessível</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg-canvas: #070d19;
+      --glass-bg: rgba(15, 23, 42, 0.86);
+      --glass-card: rgba(30, 41, 59, 0.74);
+      --glass-border: rgba(148, 163, 184, 0.18);
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.35);
+      --sky: #38bdf8;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --focus-ring: #fde047;
+      --font-scale: 1;
+    }
 
-  /* ---------------- Top bar ---------------- */
-  header{ display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--sup);
-          border-bottom:1px solid var(--borda); flex-wrap:wrap; z-index:1200; }
-  .marca{ display:flex; align-items:center; gap:9px; font-weight:800; font-size:1.1rem; }
-  .marca .logo{ font-size:1.4rem; }
-  .marca small{ display:block; font-weight:500; color:var(--suave); font-size:.68rem; letter-spacing:.3px; }
-  header .espaco{ flex:1; }
-  .perfil{ display:flex; align-items:center; gap:7px; background:var(--sup2); border:1px solid var(--borda);
-           border-radius:999px; padding:5px 12px 5px 8px; }
-  .perfil select{ background:transparent; color:var(--texto); border:none; font-size:.85rem; font-weight:600; }
-  .perfil .av{ width:26px;height:26px;border-radius:50%;background:var(--acento);display:grid;place-items:center;font-size:.95rem; }
-  .ferramentas{ display:flex; gap:6px; align-items:center; }
-  .icbtn{ min-width:40px; height:40px; padding:0 10px; border-radius:10px; border:1px solid var(--borda);
-          background:var(--sup2); color:var(--texto); cursor:pointer; font-size:.95rem; display:inline-flex; align-items:center; gap:5px; }
-  .icbtn:hover{ border-color:var(--acento); }
-  .icbtn[aria-pressed="true"]{ background:var(--acento); color:#001; border-color:var(--acento); }
-  .sos{ background:var(--perigo); color:#fff; border:none; font-weight:800; height:40px; padding:0 14px; border-radius:10px; cursor:pointer; }
-  .sos:hover{ filter:brightness(1.08); }
+    body.high-contrast {
+      --bg-canvas: #000000;
+      --glass-bg: #000000;
+      --glass-card: #0a0a0a;
+      --glass-border: #ffffff;
+      --text-main: #ffffff;
+      --text-dim: #fde047;
+      --emerald: #fde047;
+      --emerald-glow: rgba(253, 224, 71, 0.45);
+      --sky: #00ffff;
+    }
 
-  /* ---------------- Layout ---------------- */
-  .corpo{ flex:1; display:flex; min-height:0; }
-  nav.abas{ width:62px; background:var(--sup); border-right:1px solid var(--borda); display:flex; flex-direction:column;
-            align-items:center; padding-top:10px; gap:4px; }
-  nav.abas button{ width:52px; height:56px; border:none; background:transparent; color:var(--suave); cursor:pointer;
-            border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:.62rem; }
-  nav.abas button .i{ font-size:1.3rem; }
-  nav.abas button[aria-selected="true"]{ background:var(--sup2); color:var(--acento); }
-  aside#lateral{ width:340px; max-width:86vw; background:var(--sup); border-right:1px solid var(--borda); overflow-y:auto; }
-  .paineis > section{ display:none; padding:16px; }
-  .paineis > section.ativo{ display:block; }
-  #mapa{ flex:1; min-height:0; position:relative; }
+    body.high-contrast .btn-primary,
+    body.high-contrast .tab-btn.active,
+    body.high-contrast .mic-btn.listening {
+      color: #000000 !important;
+      font-weight: 800;
+    }
 
-  h2.tit{ margin:0 0 4px; font-size:1.05rem; }
-  p.sub{ margin:0 0 14px; color:var(--suave); font-size:.85rem; line-height:1.4; }
-  h3.sec{ font-size:.72rem; text-transform:uppercase; letter-spacing:.6px; color:var(--fraco); margin:18px 0 8px; }
+    body.large-text { --font-scale: 1.12; }
 
-  label.campo{ display:block; font-size:.78rem; color:var(--suave); margin:10px 0 4px; font-weight:600; }
-  input.txt,select.txt{ width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--borda);
-        background:var(--sup2); color:var(--texto); font-size:.9rem; }
-  .btn{ width:100%; padding:12px; border-radius:10px; border:none; background:var(--acento); color:#001b2e;
-        font-weight:700; font-size:.92rem; cursor:pointer; margin-top:12px; }
-  .btn:hover{ filter:brightness(1.06); }
-  .btn.sec{ background:var(--sup2); color:var(--texto); border:1px solid var(--borda); }
-  .btn.ok{ background:var(--ok); color:#fff; } .btn.perigo{ background:var(--perigo); color:#fff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: calc(16px * var(--font-scale)); }
 
-  .card{ background:var(--card); border:1px solid var(--borda); border-radius:14px; padding:14px; margin-top:12px; }
-  .linha{ display:flex; align-items:center; gap:10px; }
-  .pill{ display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; font-size:.72rem; font-weight:700; }
-  .mut{ color:var(--suave); } .fw{ font-weight:700; }
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background: var(--bg-canvas);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
 
-  .score{ display:flex; align-items:center; gap:12px; }
-  .score .num{ font-size:2rem; font-weight:800; }
-  .barra{ height:9px; border-radius:999px; background:var(--sup2); overflow:hidden; }
-  .barra > i{ display:block; height:100%; border-radius:999px; }
+    *:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
 
-  ol.passos{ list-style:none; margin:10px 0 0; padding:0; }
-  ol.passos li{ display:flex; gap:10px; padding:9px 0; border-bottom:1px dashed var(--borda); font-size:.86rem; }
-  ol.passos li:last-child{ border-bottom:none; }
-  ol.passos .ic{ width:28px; height:28px; border-radius:8px; background:var(--sup2); display:grid; place-items:center; flex:0 0 auto; }
-  ol.passos small{ color:var(--suave); }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
 
-  .cats{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .cat{ display:flex; align-items:center; gap:8px; padding:11px 9px; min-height:50px; border-radius:11px;
-        border:2px solid var(--borda); background:var(--sup2); color:var(--texto); cursor:pointer; font-size:.8rem; text-align:left; }
-  .cat .bola{ width:15px;height:15px;border-radius:50%;flex:0 0 auto; }
-  .cat[aria-pressed="true"]{ border-color:var(--acento); box-shadow:0 0 0 3px rgba(46,166,255,.22); }
+    /* Fullscreen Map Canvas */
+    #map {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
 
-  .legenda{ list-style:none; margin:0; padding:0; }
-  .legenda li{ display:flex; align-items:center; gap:8px; padding:7px 2px; font-size:.84rem; }
-  .legenda .bola{ width:13px;height:13px;border-radius:50%; } .legenda .n{ margin-left:auto; color:var(--suave); font-variant-numeric:tabular-nums; }
+    /* Floating Top Navbar */
+    .floating-header {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
 
-  .pessoa{ display:flex; align-items:center; gap:11px; }
-  .pessoa .av{ width:42px;height:42px;border-radius:50%; background:var(--sup2); display:grid; place-items:center; font-size:1.2rem; flex:0 0 auto; }
-  .pessoa .nome{ font-weight:700; font-size:.9rem; } .pessoa .meta{ font-size:.76rem; color:var(--suave); }
-  .estrelas{ color:#f4c020; letter-spacing:1px; font-size:.82rem; }
+    .brand-pill, .toolbar-pill {
+      pointer-events: auto;
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      padding: 0.6rem 0.95rem;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
 
-  .kpis{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .kpi{ background:var(--card); border:1px solid var(--borda); border-radius:14px; padding:13px; }
-  .kpi .v{ font-size:1.7rem; font-weight:800; } .kpi .r{ font-size:.73rem; color:var(--suave); }
-  .bars .b{ display:flex; align-items:center; gap:9px; margin:9px 0; font-size:.8rem; }
-  .bars .b .t{ width:96px; flex:0 0 auto; } .bars .b .tr{ flex:1; height:10px; border-radius:999px; background:var(--sup2); overflow:hidden; }
-  .bars .b .tr > i{ display:block; height:100%; } .bars .b .vv{ width:28px; text-align:right; color:var(--suave); }
+    .logo-badge {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: #042f2e;
+      font-size: 1rem;
+      box-shadow: 0 4px 14px var(--emerald-glow);
+    }
 
-  .ods{ display:flex; gap:8px; flex-wrap:wrap; }
-  .ods .o{ flex:1; min-width:130px; border-radius:12px; padding:10px; color:#fff; font-size:.78rem; font-weight:600; }
+    .brand-info h1 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
 
-  /* map overlay legend + attribution */
-  .mapinfo{ position:absolute; left:10px; bottom:10px; z-index:900; background:var(--sup); border:1px solid var(--borda);
-            border-radius:10px; padding:8px 10px; font-size:.72rem; color:var(--suave); max-width:60%; }
-  .toasts{ position:absolute; right:12px; top:12px; z-index:950; display:flex; flex-direction:column; gap:8px; max-width:300px; }
-  .toast{ background:var(--card); border:1px solid var(--borda); border-left:4px solid var(--acento); border-radius:10px;
-          padding:10px 12px; font-size:.82rem; box-shadow:0 8px 24px rgba(0,0,0,.35); }
-  .toast b{ display:block; margin-bottom:2px; }
+    .brand-info p {
+      font-size: 0.74rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
 
-  /* markers */
-  .pin{ display:grid; place-items:center; width:30px;height:30px; border-radius:50% 50% 50% 0; transform:rotate(-45deg);
-        box-shadow:0 2px 6px rgba(0,0,0,.45); border:2px solid #fff; }
-  .pin span{ transform:rotate(45deg); font-size:15px; }
-  .pop h3{ margin:0 0 4px; font-size:.95rem; color:#17212c; } .pop p{ margin:4px 0; font-size:.84rem; color:#223; }
-  .pop .meta{ color:#667; font-size:.74rem; } .pop img{ width:100%; border-radius:8px; margin:6px 0; display:block; }
-  .pop .acoes{ display:flex; gap:6px; margin-top:6px; } .pop .acoes button{ flex:1; padding:6px; border-radius:7px; border:1px solid #ccd; background:#f4f7fb; cursor:pointer; font-size:.76rem; }
-  .pop .grav{ padding:1px 8px; border-radius:999px; color:#fff; font-size:.7rem; font-weight:700; }
+    .live-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      margin-right: 5px;
+      box-shadow: 0 0 8px var(--emerald);
+      animation: pulse 2s infinite;
+    }
 
-  /* modal */
-  .modal{ position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:2000; display:none; align-items:center; justify-content:center; padding:16px; }
-  .modal.on{ display:flex; } .modal .box{ background:var(--sup); border:1px solid var(--borda); border-radius:16px; padding:20px; max-width:380px; width:100%; }
-  .modal h3{ margin:0 0 8px; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.25); }
+    }
 
-  @media (max-width:760px){
-    .corpo{ flex-direction:column; } nav.abas{ width:100%; flex-direction:row; justify-content:space-around; border-right:none; border-bottom:1px solid var(--borda); order:3; }
-    aside#lateral{ width:100%; max-width:100%; max-height:40vh; order:2; } #mapa{ order:1; min-height:46vh; }
-    .marca small{ display:none; }
-  }
-</style>
+    .toolbar-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      padding: 0.5rem 0.8rem;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .toolbar-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--emerald);
+      transform: translateY(-1px);
+    }
+
+    .toolbar-btn.active {
+      background: var(--emerald);
+      color: #042f2e;
+      border-color: var(--emerald);
+      font-weight: 700;
+    }
+
+    /* Botão Principal de Microfone (Fase 1) */
+    .mic-btn {
+      background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 0.52rem 0.95rem;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      box-shadow: 0 6px 18px rgba(14, 165, 233, 0.35);
+      transition: all 0.2s ease;
+    }
+
+    .mic-btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+
+    .mic-btn.listening {
+      background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+      box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.3), 0 8px 22px rgba(244, 63, 94, 0.5);
+      animation: micPulse 1.3s infinite;
+    }
+
+    .mic-btn.speaking {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #111827;
+    }
+
+    @keyframes micPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.55); }
+      50% { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); }
+    }
+
+    .kbd-tag {
+      font-size: 0.66rem;
+      font-weight: 700;
+      background: rgba(0, 0, 0, 0.32);
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Barra Flutuante de Transcrição ao Vivo (aria-live) */
+    .voice-live-bar {
+      position: absolute;
+      top: 84px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1050;
+      width: min(560px, calc(100vw - 32px));
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1.5px solid var(--sky);
+      border-radius: 18px;
+      padding: 12px 16px;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55);
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .voice-live-bar.visible { display: flex; }
+    .voice-live-bar.error { border-color: var(--rose); }
+    .voice-live-bar.listening { border-color: var(--emerald); }
+
+    .voice-bar-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .voice-status-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .wave-bars {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      height: 16px;
+    }
+
+    .wave-bars span {
+      width: 3px;
+      height: 6px;
+      border-radius: 99px;
+      background: var(--emerald);
+      animation: wave 0.9s ease-in-out infinite;
+    }
+    .wave-bars span:nth-child(2) { animation-delay: 0.15s; }
+    .wave-bars span:nth-child(3) { animation-delay: 0.3s; }
+    .wave-bars span:nth-child(4) { animation-delay: 0.45s; }
+    .wave-bars.paused span { animation: none; height: 4px; background: var(--text-dim); }
+
+    @keyframes wave {
+      0%, 100% { height: 5px; }
+      50% { height: 16px; }
+    }
+
+    .voice-transcript {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-main);
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+    }
+
+    .voice-privacy-note {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Floating Left Control Dock */
+    .control-dock {
+      position: absolute;
+      top: 86px;
+      left: 16px;
+      bottom: 16px;
+      width: 420px;
+      max-width: calc(100vw - 32px);
+      z-index: 950;
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 22px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .dock-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 12px 12px 0;
+    }
+
+    .tab-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      padding: 0.62rem 0.5rem;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+
+    .tab-btn:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.08); }
+    .tab-btn.active {
+      background: var(--emerald);
+      color: #042f2e;
+      box-shadow: 0 4px 14px var(--emerald-glow);
+    }
+
+    .dock-body {
+      padding: 14px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .dock-body::-webkit-scrollbar { width: 6px; }
+    .dock-body::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 99px; }
+
+    .tab-panel { display: none; flex-direction: column; gap: 12px; }
+    .tab-panel.active { display: flex; }
+
+    .glass-section {
+      background: var(--glass-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .profile-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .profile-option {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1.5px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 10px;
+      text-align: left;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .profile-option:hover { border-color: var(--sky); }
+    .profile-option.selected {
+      border-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.14);
+      box-shadow: 0 0 0 1px var(--emerald);
+    }
+
+    .profile-option .icon { font-size: 1.35rem; display: block; margin-bottom: 4px; }
+    .profile-option strong { font-size: 0.88rem; display: block; }
+    .profile-option span { font-size: 0.72rem; color: var(--text-dim); display: block; margin-top: 2px; line-height: 1.25; }
+
+    .route-points { display: flex; flex-direction: column; gap: 8px; }
+    .point-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+    }
+
+    .point-badge {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 0.72rem;
+      flex-shrink: 0;
+    }
+
+    select, input, textarea {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 0.84rem;
+    }
+
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #042f2e;
+      border: none;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 8px 20px var(--emerald-glow);
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary:hover { transform: translateY(-1px); filter: brightness(1.06); }
+
+    .btn-voice-input {
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid var(--sky);
+      color: var(--sky);
+      border-radius: 12px;
+      padding: 9px 12px;
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: 0.2s;
+    }
+
+    .btn-voice-input:hover { background: rgba(56, 189, 248, 0.24); }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .kpi-tile {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .kpi-tile strong { display: block; font-size: 1.05rem; font-weight: 800; color: var(--emerald); }
+    .kpi-tile small { font-size: 0.68rem; color: var(--text-dim); display: block; margin-top: 2px; }
+
+    .step-card {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid var(--glass-border);
+      border-left: 4px solid var(--emerald);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      line-height: 1.42;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 99px;
+      background: rgba(16, 185, 129, 0.16);
+      color: var(--emerald);
+    }
+    .chip.sky { background: rgba(56, 189, 248, 0.16); color: var(--sky); }
+    .chip.amber { background: rgba(245, 158, 11, 0.16); color: var(--amber); }
+
+    .posto-card {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 11px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .posto-card h4 { font-size: 0.84rem; font-weight: 700; }
+    .posto-card p { font-size: 0.73rem; color: var(--text-dim); margin-top: 2px; }
+
+    .mini-btn {
+      background: var(--sky);
+      color: #082f49;
+      border: none;
+      border-radius: 10px;
+      padding: 7px 11px;
+      font-weight: 800;
+      font-size: 0.74rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .alert-box {
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid var(--emerald);
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    /* Modal "O que posso dizer?" */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal-card {
+      width: min(560px, 100%);
+      max-height: 88vh;
+      overflow-y: auto;
+      background: #0f172a;
+      border: 1px solid var(--glass-border);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .cmd-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    @media (max-width: 560px) {
+      .cmd-grid { grid-template-columns: 1fr; }
+    }
+
+    .cmd-chip-btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-align: left;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .cmd-chip-btn:hover {
+      border-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.14);
+    }
+
+    .cmd-chip-btn strong { display: block; font-size: 0.82rem; color: var(--emerald); }
+    .cmd-chip-btn span { display: block; font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+
+    .privacy-box {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      line-height: 1.45;
+    }
+
+    /* Floating Bottom-Right Legend */
+    .floating-legend {
+      position: absolute;
+      bottom: 20px;
+      right: 16px;
+      z-index: 900;
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 8px; }
+    .swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    @media (max-width: 768px) {
+      .control-dock {
+        top: auto;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        width: auto;
+        height: 52vh;
+      }
+      .floating-legend { display: none; }
+    }
+  </style>
 </head>
 <body>
-<header>
-  <div class="marca"><span class="logo">🧭</span><div>RotaLivre<small>CitizenTech Urbano · navegação acessível</small></div></div>
-  <div class="espaco"></div>
-  <div class="perfil" title="Perfil de mobilidade">
-    <span class="av" id="perfil-av">♿</span>
-    <select id="perfil" class="txt" style="width:auto;padding:0;background:transparent;border:none" aria-label="Perfil de mobilidade">
-      <option value="cadeirante" data-i="♿">Cadeirante</option>
-      <option value="cego" data-i="🦯">Cego / baixa visão</option>
-      <option value="reduzida" data-i="🚶">Mobilidade reduzida</option>
-      <option value="idoso" data-i="🧓">Pessoa idosa</option>
-    </select>
-  </div>
-  <div class="ferramentas">
-    <button class="icbtn" id="t-voz" aria-pressed="false" title="Leitura por voz (TTS)">🔊</button>
-    <button class="icbtn" id="t-contraste" aria-pressed="false" title="Alto contraste">◐</button>
-    <button class="icbtn" id="t-tema" title="Tema claro/escuro">🌙</button>
-    <button class="icbtn" id="t-menos" title="Diminuir fonte">A−</button>
-    <button class="icbtn" id="t-mais" title="Aumentar fonte">A＋</button>
-    <button class="sos" id="t-sos">🆘 SOS</button>
-  </div>
-</header>
+  <!-- Mapa Fullscreen -->
+  <div id="map" role="region" aria-label="Mapa urbano interativo de rotas acessíveis"></div>
 
-<div class="corpo">
-  <nav class="abas" role="tablist" aria-label="Seções">
-    <button role="tab" aria-selected="true" data-aba="rota"><span class="i">🧭</span>Rota</button>
-    <button role="tab" aria-selected="false" data-aba="reportar"><span class="i">⚠️</span>Reportar</button>
-    <button role="tab" aria-selected="false" data-aba="apoio"><span class="i">🙋</span>Apoio</button>
-    <button role="tab" aria-selected="false" data-aba="painel"><span class="i">📊</span>Painel</button>
-  </nav>
+  <!-- Barra Superior Flutuante -->
+  <header class="floating-header">
+    <div class="brand-pill">
+      <div class="logo-badge" aria-hidden="true">RL</div>
+      <div class="brand-info">
+        <h1>RotaLivre <span style="color:var(--emerald)">CitizenTech</span></h1>
+        <p><span class="live-dot"></span>OpenStreetMap + OSRM • Comando por Voz (Fase 1)</p>
+      </div>
+    </div>
 
-  <aside id="lateral">
-    <div class="paineis">
+    <div class="toolbar-pill">
+      <!-- 1. Botão de microfone acessível com atalho -->
+      <button
+        class="mic-btn"
+        id="btnMicPrincipal"
+        onclick="alternarMicrofone()"
+        aria-pressed="false"
+        aria-label="Ativar comando por voz. Atalho de teclado Alt mais M."
+        title="Ativar ou pausar comando por voz (Atalho: Alt+M)"
+      >
+        <span id="micIcon" aria-hidden="true">🎙️</span>
+        <span id="micLabel">Comando de Voz</span>
+        <span class="kbd-tag" aria-hidden="true">Alt+M</span>
+      </button>
 
-      <!-- ROTA -->
-      <section id="aba-rota" class="ativo" role="tabpanel">
-        <h2 class="tit">Rota acessível</h2>
-        <p class="sub">Trajeto ajustado ao seu perfil, evitando barreiras reportadas pela comunidade.</p>
-        <label class="campo" for="origem">Origem</label>
-        <input class="txt" id="origem" list="lugares" placeholder="Ex.: Praça da Sé" value="Praça da Sé">
-        <label class="campo" for="destino">Destino</label>
-        <input class="txt" id="destino" list="lugares" placeholder="Ex.: Av. Paulista (MASP)" value="Av. Paulista (MASP)">
-        <datalist id="lugares"></datalist>
-        <button class="btn" id="btn-rota">Traçar rota acessível</button>
-        <div id="resultado-rota"></div>
-      </section>
+      <!-- 5. Botão para abrir Tela "O que posso dizer?" -->
+      <button
+        class="toolbar-btn"
+        id="btnAjudaVoz"
+        onclick="abrirModalAjuda()"
+        aria-haspopup="dialog"
+        aria-controls="modalAjudaVoz"
+      >
+        💬 O que posso dizer?
+      </button>
 
-      <!-- REPORTAR -->
-      <section id="aba-reportar" role="tabpanel">
-        <h2 class="tit">Reportar no mapa</h2>
-        <p class="sub">Escolha um tipo e toque no mapa para registrar a circunstância.</p>
-        <div class="cats" id="cats" role="group" aria-label="Tipo de relato"></div>
-        <p class="sub" id="dica" style="margin-top:10px">Selecione um tipo e <b>toque no mapa</b>.</p>
-        <h3 class="sec">Camadas</h3>
-        <ul class="legenda" id="legenda"></ul>
-        <button class="btn sec" id="btn-limpar" style="margin-top:14px">🗑️ Limpar meus relatos</button>
-      </section>
+      <button class="toolbar-btn" id="btnContrast" onclick="toggleContrast()" aria-pressed="false">
+        ◐ Contraste
+      </button>
+      <button class="toolbar-btn" id="btnFont" onclick="toggleFontSize()" aria-pressed="false">
+        A+ Fonte
+      </button>
+      <button class="toolbar-btn" onclick="lerRotaEmVozAlta()">
+        🔊 Ouvir Guia
+      </button>
+      <a href="/docs" target="_blank" class="toolbar-btn">⚡ API</a>
+    </div>
+  </header>
 
-      <!-- APOIO -->
-      <section id="aba-apoio" role="tabpanel">
-        <h2 class="tit">Rede de apoio</h2>
-        <p class="sub">Voluntários verificados e postos públicos próximos para acompanhamento presencial.</p>
-        <h3 class="sec">Voluntários por perto</h3>
-        <div id="lista-voluntarios"></div>
-        <h3 class="sec">Postos de apoio</h3>
-        <div id="lista-postos"></div>
-      </section>
-
-      <!-- PAINEL -->
-      <section id="aba-painel" role="tabpanel">
-        <h2 class="tit">Painel de acessibilidade</h2>
-        <p class="sub">Indicadores da malha urbana mapeada (dados de demonstração).</p>
-        <div class="kpis" id="kpis"></div>
-        <h3 class="sec">Barreiras por tipo</h3>
-        <div class="bars" id="bars"></div>
-        <h3 class="sec">Criticidade por região</h3>
-        <div class="bars" id="regioes"></div>
-        <h3 class="sec">Impacto (ODS ONU)</h3>
-        <div class="ods">
-          <div class="o" style="background:#dd1367">ODS 10<br><small>Redução das desigualdades</small></div>
-          <div class="o" style="background:#f99d26">ODS 11<br><small>Cidades sustentáveis</small></div>
+  <!-- 2. Indicador Visual e Transcrição ao Vivo (aria-live) + 6. Erros e Privacidade -->
+  <section
+    id="voiceLiveBar"
+    class="voice-live-bar"
+    role="region"
+    aria-label="Status e transcrição do comando por voz"
+  >
+    <div class="voice-bar-top">
+      <div class="voice-status-wrap">
+        <div id="waveBars" class="wave-bars paused" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
         </div>
-      </section>
+        <span id="voiceStatusText">Microfone pronto</span>
+      </div>
+      <button
+        type="button"
+        class="toolbar-btn"
+        style="padding:4px 10px;font-size:0.72rem"
+        onclick="fecharBarraVoz()"
+        aria-label="Fechar painel de transcrição de voz"
+      >
+        ✕ Fechar
+      </button>
+    </div>
 
+    <div
+      id="voiceTranscript"
+      class="voice-transcript"
+      role="status"
+      aria-live="assertive"
+      aria-atomic="true"
+    >
+      Pressione Alt+M ou clique em "Comando de Voz" para falar um comando.
+    </div>
+
+    <div class="voice-privacy-note">
+      <span>🔒 Privacidade (LGPD): o áudio é processado apenas para reconhecer comandos e não é gravado nem armazenado.</span>
+      <button
+        type="button"
+        style="background:none;border:none;color:var(--sky);font-weight:700;cursor:pointer;font-size:0.72rem;text-decoration:underline"
+        onclick="abrirModalAjuda()"
+      >
+        Ver comandos aceitos
+      </button>
+    </div>
+  </section>
+
+  <!-- Painel Lateral Flutuante com Abas -->
+  <aside class="control-dock" aria-label="Painel de controle de mobilidade acessível">
+    <nav class="dock-tabs" role="tablist">
+      <button class="tab-btn active" id="tab-rota" role="tab" aria-selected="true" onclick="switchTab('rota', this)">
+        🧭 Rota Segura
+      </button>
+      <button class="tab-btn" id="tab-apoio" role="tab" aria-selected="false" onclick="switchTab('apoio', this)">
+        🤝 Apoio & Postos
+      </button>
+      <button class="tab-btn" id="tab-zeladoria" role="tab" aria-selected="false" onclick="switchTab('zeladoria', this)">
+        ⚠️ Portal 156
+      </button>
+    </nav>
+
+    <div class="dock-body">
+      <!-- ABA 1: ROTA SEGURA -->
+      <div class="tab-panel active" id="panel-rota">
+        <div class="glass-section">
+          <div class="section-label">
+            <span>1. Perfil de Acessibilidade</span>
+            <span style="color:var(--emerald)">NBR 9050</span>
+          </div>
+          <div class="profile-selector">
+            <button type="button" class="profile-option selected" id="perfilCego" onclick="selecionarPerfil('cego')">
+              <span class="icon">🦯</span>
+              <strong>Pessoa Cega</strong>
+              <span>Piso tátil contínuo, travessias sonoras e voz.</span>
+            </button>
+            <button type="button" class="profile-option" id="perfilCadeirante" onclick="selecionarPerfil('cadeirante')">
+              <span class="icon">♿</span>
+              <strong>Cadeirante</strong>
+              <span>Guias rebaixadas, sem degraus e rampa suave.</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-section">
+          <div class="section-label">
+            <span>2. Origem e Destino</span>
+            <span style="color:var(--sky)">Arraste ou clique no mapa</span>
+          </div>
+
+          <div class="route-points" style="margin-bottom:10px">
+            <div class="point-row">
+              <span class="point-badge" style="background:rgba(16,185,129,0.2);color:var(--emerald)">A</span>
+              <span id="coordOrigemTexto">Estação Trianon-Masp (-23.5632, -46.6542)</span>
+            </div>
+            <div class="point-row">
+              <span class="point-badge" style="background:rgba(56,189,248,0.2);color:var(--sky)">B</span>
+              <span id="coordDestinoTexto">Hospital / Posto Apoio (-23.5579, -46.6518)</span>
+            </div>
+          </div>
+
+          <select id="presetTrajeto" onchange="aplicarPreset()" aria-label="Escolher trajeto de demonstração" style="margin-bottom:10px">
+            <option value="paulista">📍 Av. Paulista: Trianon-Masp → Hospital / CRAS</option>
+            <option value="se">📍 Centro Histórico: Metrô Sé → Subprefeitura Sé</option>
+            <option value="consolacao">📍 Consolação: Metrô Consolação → Parque Trianon</option>
+          </select>
+
+          <button class="btn-primary" onclick="calcularRotaAcessivel()">
+            🧭 Traçar Rota Acessível em Tempo Real
+          </button>
+        </div>
+
+        <div class="glass-section">
+          <div class="section-label">
+            <span>3. Diagnóstico da Calçada (OSM)</span>
+            <span id="fonteDadosTag" style="color:var(--emerald)">Tempo Real</span>
+          </div>
+          <div class="kpi-grid" style="margin-bottom:10px">
+            <div class="kpi-tile">
+              <strong id="metricIndice">--</strong>
+              <small>Score Acessível</small>
+            </div>
+            <div class="kpi-tile">
+              <strong id="metricDist">--</strong>
+              <small>Distância / Tempo</small>
+            </div>
+            <div class="kpi-tile">
+              <strong id="metricInfra">--</strong>
+              <small>Rampas & Piso Tátil</small>
+            </div>
+          </div>
+
+          <div id="listaPassos" style="display:flex;flex-direction:column;gap:8px">
+            <div class="step-card">Calculando infraestrutura acessível no OpenStreetMap...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA 2: APOIO HUMANO & POSTOS DA PREFEITURA -->
+      <div class="tab-panel" id="panel-apoio">
+        <div class="glass-section">
+          <div class="section-label">
+            <span>Acompanhamento Presencial</span>
+            <span style="color:var(--sky)">Verificado Gov.br</span>
+          </div>
+          <p style="font-size:0.8rem;color:var(--text-dim);line-height:1.4;margin-bottom:10px">
+            Precisa de apoio para atravessar um terminal, estação ou chegar a um serviço público? Conectamos você a um voluntário verificado ou agente da Prefeitura.
+          </p>
+          <button class="btn-primary" onclick="solicitarVoluntario()">
+            🤝 Chamar Voluntário / Agente Agora
+          </button>
+          <div id="resultadoVoluntario" style="margin-top:10px" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="glass-section">
+          <div class="section-label">
+            <span>Postos da Prefeitura Próximos</span>
+            <span style="color:var(--emerald)">Raio 500m</span>
+          </div>
+          <div id="listaPostos" style="display:flex;flex-direction:column;gap:8px">
+            <div class="posto-card">
+              <div>
+                <h4>Carregando postos municipais...</h4>
+                <p>Consultando equipamentos públicos no raio atual.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA 3: ZELADORIA URBANA (PORTAL 156) -->
+      <div class="tab-panel" id="panel-zeladoria">
+        <div class="glass-section">
+          <div class="section-label">
+            <span>Reportar Barreira Urbana</span>
+            <span style="color:var(--amber)">Integração Portal 156</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <label for="tipoBarreira" style="font-size:0.78rem;color:var(--text-dim)">Tipo de obstáculo no destino (Ponto B):</label>
+            <select id="tipoBarreira">
+              <option value="sem_rampa">🚫 Calçada sem guia rebaixada / rampa</option>
+              <option value="calcada_quebrada">🧱 Buraco ou pavimento irregular</option>
+              <option value="piso_tatil_interrompido">🦯 Piso tátil interrompido ou danificado</option>
+              <option value="veiculo_bloqueando">🚗 Veículo bloqueando a passagem/rampa</option>
+              <option value="obra_sem_sinalizacao">🚧 Obra sem sinalização tátil/sonora</option>
+            </select>
+
+            <textarea id="descBarreira" rows="2" placeholder="Descreva o local ou use o ditado por voz...">Calçada sem rampa de acesso na travessia da esquina.</textarea>
+
+            <button type="button" class="btn-voice-input" onclick="ditarRelatoPorVoz()">
+              🎙️ Ditar Relato por Voz (Hands-Free)
+            </button>
+
+            <button type="button" class="btn-primary" onclick="reportarBarreira()">
+              📨 Enviar para Prefeitura (Abrir Protocolo 156)
+            </button>
+          </div>
+
+          <div id="resultadoOcorrencia" style="margin-top:10px" role="status" aria-live="polite"></div>
+        </div>
+      </div>
     </div>
   </aside>
 
-  <div id="mapa">
-    <div class="toasts" id="toasts"></div>
-    <div class="mapinfo" id="mapinfo">Mapa © OpenStreetMap · Leaflet</div>
+  <!-- 5. Modal Tela "O que posso dizer?" -->
+  <div
+    id="modalAjudaVoz"
+    class="modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalAjuda"
+  >
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="tituloModalAjuda" style="font-size:1.1rem;font-weight:800">💬 O que posso dizer?</h2>
+          <p style="font-size:0.76rem;color:var(--text-dim);margin-top:2px">
+            Atalho rápido: <strong>Alt + M</strong> (ou clique em qualquer comando abaixo para testar)
+          </p>
+        </div>
+        <button class="toolbar-btn" onclick="fecharModalAjuda()" aria-label="Fechar tela de comandos de voz">
+          ✕ Fechar
+        </button>
+      </div>
+
+      <div class="cmd-grid">
+        <button class="cmd-chip-btn" onclick="testarComandoModal('perfil cego')">
+          <strong>"Perfil cego"</strong>
+          <span>Ativa prioridade de piso tátil e alertas sonoros.</span>
+        </button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('perfil cadeirante')">
+          <strong>"Perfil cadeirante"</strong>
+          <span>Ativa guias rebaixadas e inclinação NBR 9050.</span>
+        </button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('calcular rota')">
+          <strong>"Calcular rota"</strong>
+          <span>Traça a rota acessível em tempo real no mapa.</span>
+        </button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('ler instruções')">
+          <strong>"Ler instruções"</strong>
+          <span>Lê em voz alta o passo a passo da rota atual.</span>
+        </button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('chamar voluntário')">
+          <strong>"Chamar voluntário"</strong>
+          <span>Solicita acompanhamento verificado (Gov.br).</span>
+        </button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('abrir postos')">
+          <strong>"Abrir postos"</strong>
+          <span>Mostra postos da Prefeitura (CRAS/Subprefeitura).</span>
+        </button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('reportar barreira')">
+          <strong>"Reportar barreira"</strong>
+          <span>Abre protocolo de calçada sem rampa no Portal 156.</span>
+        </button>
+        <button class="cmd-chip-btn" onclick="testarComandoModal('alto contraste')">
+          <strong>"Alto contraste"</strong>
+          <span>Alterna o modo visual de alto contraste.</span>
+        </button>
+      </div>
+
+      <div class="privacy-box">
+        <strong>🔒 Aviso de Privacidade e LGPD:</strong> O comando por voz utiliza a API nativa do seu navegador (Web Speech API). O microfone só é ativado quando você clica no botão ou usa o atalho <strong>Alt+M</strong>, pausa automaticamente enquanto o app fala a resposta e <strong>nenhum áudio é gravado ou enviado para servidores de terceiros pelo RotaLivre</strong>.
+      </div>
+    </div>
   </div>
-</div>
 
-<!-- modal genérico -->
-<div class="modal" id="modal" role="dialog" aria-modal="true">
-  <div class="box" id="modal-box"></div>
-</div>
+  <!-- Legenda Flutuante -->
+  <div class="floating-legend" aria-hidden="true">
+    <div class="legend-item"><span class="swatch" style="background:#10b981"></span> Rota Acessível Verificada</div>
+    <div class="legend-item"><span class="swatch" style="background:#38bdf8"></span> Posto Prefeitura / CRAS / Apoio</div>
+    <div class="legend-item"><span class="swatch" style="background:#f59e0b"></span> Rampa / Piso Tátil (OSM)</div>
+    <div class="legend-item"><span class="swatch" style="background:#f43f5e"></span> Barreira Reportada (Portal 156)</div>
+  </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin=""></script>
-<script>
-(function(){
-"use strict";
-var CHAVE="rotalivre_relatos_v2";
+  <script>
+    let perfilAtual = 'cego';
+    let origem = { lat: -23.563210, lon: -46.654250 };
+    let destino = { lat: -23.557920, lon: -46.651840 };
+    let ultimasInstrucoes = [];
 
-/* ---------- dados base ---------- */
-var LUGARES={
-  "praça da sé":[-23.5503,-46.6339],"av. paulista (masp)":[-23.5614,-46.6558],"parque ibirapuera":[-23.5874,-46.6576],
-  "mercado municipal":[-23.5419,-46.6290],"estação da luz":[-23.5345,-46.6356],"terminal bandeira":[-23.5560,-46.6410],
-  "usp butantã":[-23.5595,-46.7313],"largo da batata (pinheiros)":[-23.5668,-46.6940],"metrô república":[-23.5430,-46.6420],
-  "catedral da sé":[-23.5503,-46.6339],"estação sé":[-23.5500,-46.6340]
-};
-var TIPOS={
-  buraco:{nome:"Buraco / calçada ruim",emoji:"🕳️",cor:"#e5484d",obst:true},
-  rampa:{nome:"Falta de rampa",emoji:"♿",cor:"#fb8c00",obst:true},
-  tatil:{nome:"Piso tátil interrompido",emoji:"🟡",cor:"#f4c020",obst:true},
-  obra:{nome:"Obra / obstrução",emoji:"🚧",cor:"#8b5cf6",obst:true},
-  voluntario:{nome:"Voluntário",emoji:"🙋",cor:"#2ea6ff",obst:false},
-  posto:{nome:"Posto de apoio",emoji:"🏥",cor:"#2e9e5b",obst:false}
-};
-var GRAV={baixa:"#2e9e5b",media:"#fb8c00",alta:"#e5484d"};
-var PERFIS={cadeirante:"♿",cego:"🦯",reduzida:"🚶",idoso:"🧓"};
+    // Estado do módulo de Comando por Voz (Fase 1)
+    let recognition = null;
+    let isListening = false;
+    let isSpeaking = false;
 
-var VOLUNTARIOS=[
-  {nome:"Marina Alves",emoji:"👩",nota:5,dist:"320 m",tag:"Guia-vidente · manhãs",lat:-23.5500,lng:-46.6290},
-  {nome:"Carlos Nunes",emoji:"🧑",nota:4,dist:"1,1 km",tag:"Apoio a cadeirante",lat:-23.5560,lng:-46.6380},
-  {nome:"Dona Zefa",emoji:"👵",nota:5,dist:"800 m",tag:"Comerciante · ponto seguro",lat:-23.5470,lng:-46.6420}
-];
-var POSTOS=[
-  {nome:"CRAS Sé",emoji:"🏥",tag:"Assistência · seg–sex 8h-17h",lat:-23.5540,lng:-46.6320},
-  {nome:"Base Guarda Civil",emoji:"🛡️",tag:"Apoio 24h",lat:-23.5490,lng:-46.6305}
-];
+    const presets = {
+      paulista: {
+        orig: [-23.563210, -46.654250],
+        dest: [-23.557920, -46.651840],
+        nomeOrig: 'Estação Trianon-Masp',
+        nomeDest: 'Hospital / Posto de Apoio Paulista'
+      },
+      se: {
+        orig: [-23.550309, -46.634200],
+        dest: [-23.548120, -46.631950],
+        nomeOrig: 'Estação Metrô Sé',
+        nomeDest: 'Subprefeitura / Poupatempo Sé'
+      },
+      consolacao: {
+        orig: [-23.557850, -46.660620],
+        dest: [-23.561710, -46.655980],
+        nomeOrig: 'Estação Consolação',
+        nomeDest: 'Parque Trianon (Travessia Acessível)'
+      }
+    };
 
-/* ---------- mapa ---------- */
-var mapa=L.map("mapa",{zoomControl:true}).setView([-23.5503,-46.6339],15);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(mapa);
-var camadas={}; Object.keys(TIPOS).forEach(function(t){camadas[t]=L.layerGroup().addTo(mapa);});
-var camadaRota=L.layerGroup().addTo(mapa);
+    const map = L.map('map', { zoomControl: false }).setView([origem.lat, origem.lon], 16);
+    L.control.zoom({ position: 'topright' }).addTo(map);
 
-/* ---------- util ---------- */
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
-function haversine(a,b){var R=6371,toR=function(x){return x*Math.PI/180;};
-  var dLat=toR(b[0]-a[0]),dLng=toR(b[1]-a[1]);
-  var s=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toR(a[0]))*Math.cos(toR(b[0]))*Math.sin(dLng/2)*Math.sin(dLng/2);
-  return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));}
-function quando(ts){var d=new Date(ts);return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});}
-function iconePin(t){return L.divIcon({className:"",iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-28],
-  html:'<div class="pin" style="background:'+TIPOS[t].cor+'"><span>'+TIPOS[t].emoji+'</span></div>'});}
-function falar(txt){ if(!vozOn||!window.speechSynthesis) return; try{ speechSynthesis.cancel();
-  var u=new SpeechSynthesisUtterance(txt); u.lang="pt-BR"; u.rate=1; speechSynthesis.speak(u);}catch(e){} }
-function toast(titulo,msg){ var el=document.createElement("div"); el.className="toast";
-  el.innerHTML="<b>"+esc(titulo)+"</b>"+esc(msg); document.getElementById("toasts").appendChild(el);
-  setTimeout(function(){el.style.opacity=".0";el.style.transition="opacity .5s";setTimeout(function(){el.remove();},500);},5200); }
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      maxZoom: 19
+    }).addTo(map);
 
-/* ---------- persistência de relatos ---------- */
-function carregar(){try{return JSON.parse(localStorage.getItem(CHAVE))||null;}catch(e){return null;}}
-function salvar(){try{localStorage.setItem(CHAVE,JSON.stringify(relatos));}catch(e){}}
-function seed(){var n=Date.now();return[
-  {id:"ex1",tipo:"buraco",lat:-23.5515,lng:-46.6360,desc:"Buraco fundo na esquina, sem sinalização.",grav:"alta",autor:"João P.",conf:7,ts:n,foto:true},
-  {id:"ex2",tipo:"rampa",lat:-23.5490,lng:-46.6300,desc:"Calçada sem rebaixamento para cadeirante.",grav:"media",autor:"Marina A.",conf:3,ts:n},
-  {id:"ex3",tipo:"tatil",lat:-23.5533,lng:-46.6395,desc:"Piso tátil interrompido por mesas de bar.",grav:"media",autor:"Luís F.",conf:4,ts:n},
-  {id:"ex4",tipo:"obra",lat:-23.5472,lng:-46.6350,desc:"Obra ocupando toda a calçada por 2 semanas.",grav:"alta",autor:"Zeladoria",conf:11,ts:n,foto:true}
-].concat(
-  VOLUNTARIOS.map(function(v,i){return{id:"vol"+i,tipo:"voluntario",lat:v.lat,lng:v.lng,desc:v.nome+" — "+v.tag,grav:"baixa",autor:v.nome,conf:0,ts:n};}),
-  POSTOS.map(function(p,i){return{id:"pos"+i,tipo:"posto",lat:p.lat,lng:p.lng,desc:p.nome+" — "+p.tag,grav:"baixa",autor:"Prefeitura",conf:0,ts:n};})
-);}
-var relatos=carregar(); if(!relatos){relatos=seed();salvar();}
+    const iconOrigem = L.divIcon({
+      className: '',
+      html: '<div style="width:28px;height:28px;border-radius:50%;background:#10b981;border:3px solid #fff;color:#042f2e;font-weight:800;display:grid;place-items:center;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.5)">A</div>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
 
-function popupRelato(r){var t=TIPOS[r.tipo];
-  var grav=t.obst?'<span class="grav" style="background:'+(GRAV[r.grav]||"#888")+'">'+r.grav+'</span> ':'';
-  var foto=r.foto?'<img alt="Foto do local (exemplo)" src="data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'220\' height=\'110\'><rect width=\'220\' height=\'110\' fill=\'#cfd8e3\'/><text x=\'110\' y=\'60\' font-size=\'13\' text-anchor=\'middle\' fill=\'#5a6b7c\'>📷 foto do local (mock)</text></svg>')+'">':'';
-  return '<div class="pop"><h3>'+t.emoji+' '+esc(t.nome)+'</h3>'+(grav?'<p>'+grav+'</p>':'')
-    +foto+'<p>'+(r.desc?esc(r.desc):"<i>Sem descrição</i>")+'</p>'
-    +'<div class="meta">por '+esc(r.autor||"Anônimo")+' · '+quando(r.ts)+(t.obst?' · ✅ '+(r.conf||0)+' confirmações':'')+'</div>'
-    +(t.obst?'<div class="acoes"><button data-conf="'+r.id+'">👍 Confirmar</button><button data-rem="'+r.id+'">🗑️ Remover</button></div>':'<div class="acoes"><button data-rem="'+r.id+'">Remover</button></div>')
-    +'</div>';}
-function desenhar(r){var m=L.marker([r.lat,r.lng],{icon:iconePin(r.tipo),title:TIPOS[r.tipo].nome});
-  m.bindPopup(popupRelato(r)); camadas[r.tipo].addLayer(m);}
-function redesenhar(){Object.keys(camadas).forEach(function(t){camadas[t].clearLayers();});relatos.forEach(desenhar);contagens();painel();}
-mapa.on("popupopen",function(e){var box=e.popup._contentNode;
-  var c=box.querySelector("[data-conf]"); if(c)c.addEventListener("click",function(){var id=c.getAttribute("data-conf");
-    relatos.forEach(function(r){if(r.id===id)r.conf=(r.conf||0)+1;});salvar();mapa.closePopup();redesenhar();toast("Confirmado","Obrigado! Isso aumenta a confiança do relato.");});
-  var x=box.querySelector("[data-rem]"); if(x)x.addEventListener("click",function(){var id=x.getAttribute("data-rem");
-    relatos=relatos.filter(function(r){return r.id!==id;});salvar();mapa.closePopup();redesenhar();});});
+    const iconDestino = L.divIcon({
+      className: '',
+      html: '<div style="width:28px;height:28px;border-radius:50%;background:#38bdf8;border:3px solid #fff;color:#082f49;font-weight:800;display:grid;place-items:center;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.5)">B</div>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
 
-/* ---------- reportar ---------- */
-var ativo=null;
-var catsEl=document.getElementById("cats");
-Object.keys(TIPOS).forEach(function(t){var b=document.createElement("button");
-  b.className="cat";b.type="button";b.setAttribute("aria-pressed","false");
-  b.innerHTML='<span class="bola" style="background:'+TIPOS[t].cor+'"></span><span>'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</span>';
-  b.addEventListener("click",function(){ativo=(ativo===t)?null:t;
-    Array.prototype.forEach.call(catsEl.children,function(c){c.setAttribute("aria-pressed","false");});
-    document.getElementById("dica").innerHTML=ativo?('Toque no mapa para registrar: <b>'+TIPOS[t].nome+'</b>.'):'Selecione um tipo e <b>toque no mapa</b>.';
-    if(ativo)b.setAttribute("aria-pressed","true");});
-  catsEl.appendChild(b);});
-mapa.on("click",function(e){if(ativo)formRelato(e.latlng);});
-function formRelato(latlng){
-  var opts=Object.keys(TIPOS).map(function(t){return '<option value="'+t+'"'+(t===ativo?' selected':'')+'>'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</option>';}).join("");
-  var html='<form class="pop" style="min-width:210px"><label class="campo">Tipo</label><select class="txt" name="tipo">'+opts+'</select>'
-    +'<label class="campo">Gravidade</label><select class="txt" name="grav"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select>'
-    +'<label class="campo">Circunstância</label><textarea class="txt" name="desc" rows="2" placeholder="Ex.: buraco fundo, calçada bloqueada..."></textarea>'
-    +'<label class="campo"><input type="checkbox" name="foto"> 📷 anexar foto (mock)</label>'
-    +'<div class="acoes" style="margin-top:8px"><button type="button" class="cancel">Cancelar</button><button type="submit" style="background:#2ea6ff;color:#fff">Adicionar</button></div></form>';
-  var pop=L.popup({minWidth:230}).setLatLng(latlng).setContent(html).openOn(mapa);
-  var f=pop._contentNode.querySelector("form");
-  f.querySelector(".cancel").addEventListener("click",function(){mapa.closePopup();});
-  f.addEventListener("submit",function(ev){ev.preventDefault();
-    var r={id:"r"+Date.now(),tipo:f.tipo.value,grav:f.grav.value,desc:f.desc.value.trim(),foto:f.foto.checked,
-      autor:"Você",conf:0,lat:latlng.lat,lng:latlng.lng,ts:Date.now()};
-    relatos.push(r);salvar();mapa.closePopup();redesenhar();
-    document.getElementById("chk-"+r.tipo).checked=true;camadas[r.tipo].addTo(mapa);
-    toast("Relato enviado","Obrigado por melhorar o mapa da cidade!");});
-}
+    let markerOrigem = L.marker([origem.lat, origem.lon], { draggable: true, icon: iconOrigem }).addTo(map).bindPopup('Ponto A: Origem (arraste para ajustar)');
+    let markerDestino = L.marker([destino.lat, destino.lon], { draggable: true, icon: iconDestino }).addTo(map).bindPopup('Ponto B: Destino (arraste para ajustar)');
+    let rotaLayer = null;
+    let rotaGlowLayer = null;
+    let pontosLayer = L.layerGroup().addTo(map);
 
-/* ---------- legenda / contagem ---------- */
-var legEl=document.getElementById("legenda");
-Object.keys(TIPOS).forEach(function(t){var li=document.createElement("li");
-  li.innerHTML='<input type="checkbox" id="chk-'+t+'" checked aria-label="Mostrar '+TIPOS[t].nome+'"><span class="bola" style="background:'+TIPOS[t].cor+'"></span><label for="chk-'+t+'">'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</label><span class="n" id="n-'+t+'">0</span>';
-  legEl.appendChild(li);
-  li.querySelector("input").addEventListener("change",function(e){e.target.checked?camadas[t].addTo(mapa):mapa.removeLayer(camadas[t]);});});
-function contagens(){Object.keys(TIPOS).forEach(function(t){document.getElementById("n-"+t).textContent=relatos.filter(function(r){return r.tipo===t;}).length;});}
-document.getElementById("btn-limpar").addEventListener("click",function(){
-  if(confirm("Apagar todos os relatos deste navegador e recarregar os exemplos?")){relatos=seed();salvar();redesenhar();}});
+    function atualizarTextoCoordenadas(nomeA, nomeB) {
+      document.getElementById('coordOrigemTexto').textContent =
+        `${nomeA || 'Ponto A'} (${origem.lat.toFixed(4)}, ${origem.lon.toFixed(4)})`;
+      document.getElementById('coordDestinoTexto').textContent =
+        `${nomeB || 'Ponto B'} (${destino.lat.toFixed(4)}, ${destino.lon.toFixed(4)})`;
+    }
 
-/* ---------- rota acessível (mock) ---------- */
-var datalist=document.getElementById("lugares");
-Object.keys(LUGARES).forEach(function(k){var o=document.createElement("option");
-  o.value=k.replace(/\b\w/g,function(c){return c.toUpperCase();});datalist.appendChild(o);});
-function coord(nome){var k=(nome||"").trim().toLowerCase();return LUGARES[k]||null;}
-document.getElementById("btn-rota").addEventListener("click",tracarRota);
-function tracarRota(){
-  var a=coord(document.getElementById("origem").value),b=coord(document.getElementById("destino").value);
-  var res=document.getElementById("resultado-rota");
-  if(!a||!b){res.innerHTML='<div class="card" style="border-color:var(--alerta)">Escolha origem e destino da lista de lugares sugeridos.</div>';return;}
-  camadaRota.clearLayers();
-  // waypoints mock: origem -> ponto intermediário deslocado -> destino
-  var mid=[(a[0]+b[0])/2+0.0012,(a[1]+b[1])/2-0.0016];
-  var pts=[a,mid,b];
-  L.polyline(pts,{color:"#2ea6ff",weight:6,opacity:.85}).addTo(camadaRota);
-  L.marker(a,{icon:iconeLetra("A","#2e9e5b")}).addTo(camadaRota);
-  L.marker(b,{icon:iconeLetra("B","#e5484d")}).addTo(camadaRota);
-  mapa.fitBounds(L.latLngBounds(pts).pad(0.3));
-  var dist=haversine(a,mid)+haversine(mid,b); // km
-  var vel={cadeirante:3.6,cego:3.2,reduzida:3.8,idoso:3.4}[perfil]||4.2;
-  var min=Math.round(dist/vel*60);
-  var evita=relatos.filter(function(r){return TIPOS[r.tipo].obst;}).slice(0,3);
-  var base={cadeirante:82,cego:78,reduzida:88,idoso:85}[perfil]||90;
-  var score=Math.max(60,Math.min(97,base-evita.length));
-  var cor=score>=85?"#2e9e5b":score>=70?"#fb8c00":"#e5484d";
-  var passos=gerarPassos(dist,evita);
-  res.innerHTML=
-    '<div class="card"><div class="linha" style="justify-content:space-between">'
-      +'<div><div class="mut" style="font-size:.74rem">DISTÂNCIA</div><div class="fw" style="font-size:1.1rem">'+dist.toFixed(2).replace(".",",")+' km</div></div>'
-      +'<div><div class="mut" style="font-size:.74rem">TEMPO EST.</div><div class="fw" style="font-size:1.1rem">'+min+' min</div></div>'
-      +'<div><div class="mut" style="font-size:.74rem">PASSOS</div><div class="fw" style="font-size:1.1rem">'+passos.length+'</div></div></div>'
-      +'<h3 class="sec" style="margin:12px 0 6px">Acessibilidade da rota</h3>'
-      +'<div class="score"><div class="num" style="color:'+cor+'">'+score+'%</div><div style="flex:1"><div class="barra"><i style="width:'+score+'%;background:'+cor+'"></i></div>'
-      +'<div class="mut" style="font-size:.76rem;margin-top:5px">Perfil: '+PERFIS[perfil]+' '+nomePerfil()+' · evita '+evita.length+' barreira(s) reportada(s)</div></div></div>'
-      +'<button class="btn" id="btn-ouvir" style="margin-top:12px">🔊 Ouvir instruções</button>'
-      +'<ol class="passos">'+passos.map(function(p){return '<li><span class="ic">'+p.i+'</span><div><div>'+esc(p.t)+'</div><small>'+esc(p.s)+'</small></div></li>';}).join("")+'</ol>'
-    +'</div>';
-  document.getElementById("btn-ouvir").addEventListener("click",function(){falar("Rota de "+nomePerfil()+". "+passos.map(function(p){return p.t;}).join(". "));});
-  toast("Rota traçada",dist.toFixed(2).replace(".",",")+" km · "+min+" min · acessibilidade "+score+"%");
-  falar("Rota traçada. "+dist.toFixed(1).replace(".",",")+" quilômetros, cerca de "+min+" minutos.");
-}
-function iconeLetra(l,c){return L.divIcon({className:"",iconSize:[28,28],iconAnchor:[14,28],html:'<div class="pin" style="background:'+c+'"><span>'+l+'</span></div>'});}
-function gerarPassos(dist,evita){
-  var p=[{i:"🚩",t:"Saia da origem pela calçada à direita",s:"Piso regular, com guia tátil"},
-         {i:"♿",t:"Siga reto por ~"+Math.round(dist*350)+" m",s:"Calçada larga, sem degraus"}];
-  if(evita[0])p.push({i:"⚠️",t:"Atenção: "+TIPOS[evita[0].tipo].nome.toLowerCase()+" à frente — rota desviada",s:"Desvio de ~40 m pela via paralela"});
-  p.push({i:"↩️",t:"Vire à esquerda no cruzamento com rampa rebaixada",s:"Semáforo com sinal sonoro"});
-  if(evita[1])p.push({i:"🚧",t:"Evitando "+TIPOS[evita[1].tipo].nome.toLowerCase()+" reportado",s:"Trecho com maior fluxo e iluminação"});
-  p.push({i:"🏁",t:"Chegue ao destino",s:"Entrada acessível pela porta principal"});
-  return p;
-}
-function nomePerfil(){return document.getElementById("perfil").selectedOptions[0].text;}
+    markerOrigem.on('dragend', () => {
+      const pos = markerOrigem.getLatLng();
+      origem = { lat: pos.lat, lon: pos.lng };
+      atualizarTextoCoordenadas('Origem Personalizada', null);
+      calcularRotaAcessivel();
+    });
 
-/* ---------- apoio ---------- */
-function estrelas(n){return '<span class="estrelas">'+("★".repeat(n))+("☆".repeat(5-n))+'</span>';}
-function renderApoio(){
-  document.getElementById("lista-voluntarios").innerHTML=VOLUNTARIOS.map(function(v,i){
-    return '<div class="card"><div class="pessoa"><div class="av">'+v.emoji+'</div><div style="flex:1"><div class="nome">'+esc(v.nome)+' '+estrelas(v.nota)+'</div><div class="meta">'+esc(v.tag)+' · '+v.dist+'</div></div></div>'
-      +'<button class="btn" data-vol="'+i+'" style="margin-top:10px">🤝 Solicitar acompanhamento</button></div>';}).join("");
-  Array.prototype.forEach.call(document.querySelectorAll("[data-vol]"),function(b){b.addEventListener("click",function(){solicitar(VOLUNTARIOS[b.getAttribute("data-vol")]);});});
-  document.getElementById("lista-postos").innerHTML=POSTOS.map(function(p){
-    return '<div class="card"><div class="pessoa"><div class="av">'+p.emoji+'</div><div><div class="nome">'+esc(p.nome)+'</div><div class="meta">'+esc(p.tag)+'</div></div></div></div>';}).join("");
-}
-function solicitar(v){abrirModal('<h3>🤝 Solicitar '+esc(v.nome)+'</h3><p class="sub">Um pedido de acompanhamento seguro será enviado (demonstração). '+esc(v.nome)+' está a '+v.dist+'.</p>'
-  +'<button class="btn ok" id="m-confirmar">Confirmar pedido</button><button class="btn sec" id="m-cancel" style="margin-top:8px">Cancelar</button>');
-  document.getElementById("m-cancel").addEventListener("click",fecharModal);
-  document.getElementById("m-confirmar").addEventListener("click",function(){fecharModal();
-    toast("Pedido enviado","Aguardando "+v.nome+" aceitar o acompanhamento...");
-    setTimeout(function(){toast("Voluntário a caminho",v.nome+" aceitou e está indo ao seu encontro. Chegada em ~6 min.");falar(v.nome+" aceitou e está a caminho.");},2600);});
-}
+    markerDestino.on('dragend', () => {
+      const pos = markerDestino.getLatLng();
+      destino = { lat: pos.lat, lon: pos.lng };
+      atualizarTextoCoordenadas(null, 'Destino Personalizado');
+      calcularRotaAcessivel();
+    });
 
-/* ---------- painel ---------- */
-function painel(){
-  var obst=relatos.filter(function(r){return TIPOS[r.tipo].obst;});
-  var vols=relatos.filter(function(r){return r.tipo==="voluntario";}).length;
-  var conf=obst.reduce(function(s,r){return s+(r.conf||0);},0);
-  document.getElementById("kpis").innerHTML=
-    kpi(obst.length,"Barreiras mapeadas")+kpi(conf,"Confirmações da comunidade")
-    +kpi(vols,"Voluntários ativos")+kpi((obst.filter(function(r){return r.grav==="alta";}).length),"Pontos críticos (alta)");
-  var tipos=["buraco","rampa","tatil","obra"],max=Math.max(1,Math.max.apply(null,tipos.map(function(t){return relatos.filter(function(r){return r.tipo===t;}).length;})));
-  document.getElementById("bars").innerHTML=tipos.map(function(t){var n=relatos.filter(function(r){return r.tipo===t;}).length;
-    return bar(TIPOS[t].emoji+" "+TIPOS[t].nome,n,max,TIPOS[t].cor);}).join("");
-  var reg=[["Centro",8],["Zona Sul",5],["Zona Leste",6],["Zona Oeste",3]],mx=Math.max.apply(null,reg.map(function(r){return r[1];}));
-  document.getElementById("regioes").innerHTML=reg.map(function(r){return bar(r[0],r[1],mx,"#2ea6ff");}).join("");
-}
-function kpi(v,r){return '<div class="kpi"><div class="v">'+v+'</div><div class="r">'+r+'</div></div>';}
-function bar(t,n,max,cor){return '<div class="b"><div class="t">'+t+'</div><div class="tr"><i style="width:'+Math.round(n/max*100)+'%;background:'+cor+'"></i></div><div class="vv">'+n+'</div></div>';}
+    map.on('click', (e) => {
+      destino = { lat: e.latlng.lat, lon: e.latlng.lng };
+      markerDestino.setLatLng([destino.lat, destino.lon]);
+      atualizarTextoCoordenadas(null, 'Destino Selecionado no Mapa');
+      calcularRotaAcessivel();
+    });
 
-/* ---------- abas ---------- */
-Array.prototype.forEach.call(document.querySelectorAll('[role="tab"]'),function(t){t.addEventListener("click",function(){
-  document.querySelectorAll('[role="tab"]').forEach(function(x){x.setAttribute("aria-selected","false");});
-  t.setAttribute("aria-selected","true");
-  document.querySelectorAll(".paineis > section").forEach(function(s){s.classList.remove("ativo");});
-  document.getElementById("aba-"+t.getAttribute("data-aba")).classList.add("ativo");
-  setTimeout(function(){mapa.invalidateSize();},60);});});
+    function switchTab(tabId, btnEl) {
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      if (btnEl) {
+        btnEl.classList.add('active');
+        btnEl.setAttribute('aria-selected', 'true');
+      }
+      document.getElementById(`panel-${tabId}`).classList.add('active');
+    }
 
-/* ---------- perfil + acessibilidade ---------- */
-var perfil="cadeirante",vozOn=false,escala=1;
-document.getElementById("perfil").addEventListener("change",function(e){perfil=e.target.value;
-  document.getElementById("perfil-av").textContent=PERFIS[perfil];
-  toast("Perfil alterado","Rotas agora priorizam: "+nomePerfil());});
-document.getElementById("t-voz").addEventListener("click",function(){vozOn=!vozOn;this.setAttribute("aria-pressed",vozOn);
-  if(vozOn)falar("Leitura por voz ativada."); else if(window.speechSynthesis)speechSynthesis.cancel();});
-document.getElementById("t-contraste").addEventListener("click",function(){var on=document.documentElement.getAttribute("data-contraste")==="alto";
-  document.documentElement.setAttribute("data-contraste",on?"":"alto");this.setAttribute("aria-pressed",!on);});
-document.getElementById("t-tema").addEventListener("click",function(){var c=document.documentElement.getAttribute("data-tema")==="claro";
-  document.documentElement.setAttribute("data-tema",c?"":"claro");this.textContent=c?"🌙":"☀️";});
-document.getElementById("t-mais").addEventListener("click",function(){escala=Math.min(1.5,escala+0.1);document.documentElement.style.setProperty("--escala",escala);});
-document.getElementById("t-menos").addEventListener("click",function(){escala=Math.max(0.85,escala-0.1);document.documentElement.style.setProperty("--escala",escala);});
-document.getElementById("t-sos").addEventListener("click",function(){abrirModal('<h3>🆘 Emergência</h3><p class="sub">Isto enviaria sua localização ao posto público mais próximo e aos seus contatos de confiança (demonstração).</p>'
-  +'<button class="btn perigo" id="m-sos">Acionar SOS agora</button><button class="btn sec" id="m-cancel" style="margin-top:8px">Cancelar</button>');
-  document.getElementById("m-cancel").addEventListener("click",fecharModal);
-  document.getElementById("m-sos").addEventListener("click",function(){fecharModal();toast("SOS acionado","Posto Base Guarda Civil notificado. Mantenha a calma, ajuda a caminho.");falar("Emergência acionada. Ajuda a caminho.");});});
+    function toggleContrast() {
+      const active = document.body.classList.toggle('high-contrast');
+      const btn = document.getElementById('btnContrast');
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active);
+      return active;
+    }
 
-/* ---------- modal ---------- */
-function abrirModal(html){document.getElementById("modal-box").innerHTML=html;document.getElementById("modal").classList.add("on");}
-function fecharModal(){document.getElementById("modal").classList.remove("on");}
-document.getElementById("modal").addEventListener("click",function(e){if(e.target===this)fecharModal();});
+    function toggleFontSize() {
+      const active = document.body.classList.toggle('large-text');
+      const btn = document.getElementById('btnFont');
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active);
+      return active;
+    }
 
-/* ---------- init ---------- */
-renderApoio();redesenhar();
-toast("Boas-vindas ao RotaLivre","Trace uma rota acessível ou toque no mapa para reportar uma barreira.");
-})();
-</script>
+    function selecionarPerfil(perfil) {
+      perfilAtual = perfil;
+      document.getElementById('perfilCego').classList.toggle('selected', perfil === 'cego');
+      document.getElementById('perfilCadeirante').classList.toggle('selected', perfil === 'cadeirante');
+      calcularRotaAcessivel();
+    }
+
+    function aplicarPreset() {
+      const key = document.getElementById('presetTrajeto').value;
+      const p = presets[key];
+      origem = { lat: p.orig[0], lon: p.orig[1] };
+      destino = { lat: p.dest[0], lon: p.dest[1] };
+      markerOrigem.setLatLng(p.orig);
+      markerDestino.setLatLng(p.dest);
+      atualizarTextoCoordenadas(p.nomeOrig, p.nomeDest);
+      calcularRotaAcessivel();
+    }
+
+    function definirDestinoPosto(lat, lon, nome) {
+      destino = { lat, lon };
+      markerDestino.setLatLng([lat, lon]);
+      atualizarTextoCoordenadas(null, nome);
+      switchTab('rota', document.getElementById('tab-rota'));
+      calcularRotaAcessivel();
+    }
+
+    // =========================================================
+    // FASE 1: COMANDO POR VOZ (INTERFACE + EXECUÇÃO + TTS + LGPD)
+    // =========================================================
+    function atualizarUIMicrofone(estado, statusTexto, transcricaoTexto) {
+      const bar = document.getElementById('voiceLiveBar');
+      const waves = document.getElementById('waveBars');
+      const statusEl = document.getElementById('voiceStatusText');
+      const transEl = document.getElementById('voiceTranscript');
+      const btn = document.getElementById('btnMicPrincipal');
+      const label = document.getElementById('micLabel');
+
+      bar.classList.add('visible');
+      bar.classList.remove('listening', 'error');
+      btn.classList.remove('listening', 'speaking');
+
+      if (estado === 'listening') {
+        bar.classList.add('listening');
+        waves.classList.remove('paused');
+        btn.classList.add('listening');
+        btn.setAttribute('aria-pressed', 'true');
+        label.textContent = 'Ouvindo...';
+      } else if (estado === 'speaking') {
+        waves.classList.add('paused');
+        btn.classList.add('speaking');
+        btn.setAttribute('aria-pressed', 'false');
+        label.textContent = 'Respondendo...';
+      } else if (estado === 'error') {
+        bar.classList.add('error');
+        waves.classList.add('paused');
+        btn.setAttribute('aria-pressed', 'false');
+        label.textContent = 'Comando de Voz';
+      } else {
+        waves.classList.add('paused');
+        btn.setAttribute('aria-pressed', 'false');
+        label.textContent = 'Comando de Voz';
+      }
+
+      if (statusTexto) statusEl.textContent = statusTexto;
+      if (transcricaoTexto) transEl.textContent = transcricaoTexto;
+    }
+
+    function fecharBarraVoz() {
+      pararMicrofone();
+      document.getElementById('voiceLiveBar').classList.remove('visible');
+    }
+
+    function pararMicrofone() {
+      if (recognition && isListening) {
+        try { recognition.abort(); } catch (e) {}
+      }
+      isListening = false;
+    }
+
+    // 4. Resposta falada, pausando o microfone automaticamente
+    function responderFalado(texto) {
+      pararMicrofone();
+      atualizarUIMicrofone('speaking', '🔊 Respondendo por voz (microfone pausado)', texto);
+
+      if (!('speechSynthesis' in window)) {
+        atualizarUIMicrofone('idle', 'Pronto', texto);
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(texto);
+      utter.lang = 'pt-BR';
+      utter.rate = 1.02;
+
+      isSpeaking = true;
+      utter.onend = () => {
+        isSpeaking = false;
+        atualizarUIMicrofone('idle', 'Microfone pronto (Alt+M para falar novamente)', texto);
+      };
+      utter.onerror = () => {
+        isSpeaking = false;
+        atualizarUIMicrofone('idle', 'Microfone pronto', texto);
+      };
+      window.speechSynthesis.speak(utter);
+    }
+
+    // 3. Função executar(cmd) ligada às ações do app
+    function executar(cmd) {
+      const comando = (cmd || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
+      if (!comando) return;
+
+      if (comando.includes('ajuda') || comando.includes('o que posso dizer') || comando.includes('comandos')) {
+        abrirModalAjuda();
+        responderFalado('Abrindo a lista de comandos de voz disponíveis.');
+        return;
+      }
+
+      if (comando.includes('cego') || comando.includes('visual') || comando.includes('tatil')) {
+        selecionarPerfil('cego');
+        switchTab('rota', document.getElementById('tab-rota'));
+        responderFalado('Perfil pessoa cega ativado. Calculando rota com prioridade para piso tátil e alertas sonoros.');
+        return;
+      }
+
+      if (comando.includes('cadeirante') || comando.includes('cadeira') || comando.includes('rampa')) {
+        selecionarPerfil('cadeirante');
+        switchTab('rota', document.getElementById('tab-rota'));
+        responderFalado('Perfil cadeirante ativado. Calculando rota com guias rebaixadas e inclinação segura.');
+        return;
+      }
+
+      if (comando.includes('calcular') || comando.includes('tracar') || comando.includes('rota')) {
+        switchTab('rota', document.getElementById('tab-rota'));
+        calcularRotaAcessivel();
+        responderFalado('Calculando a rota acessível em tempo real pelo OpenStreetMap.');
+        return;
+      }
+
+      if (comando.includes('ler') || comando.includes('ouvir') || comando.includes('instruc') || comando.includes('guia')) {
+        lerRotaEmVozAlta();
+        return;
+      }
+
+      if (comando.includes('voluntario') || comando.includes('acompanh') || comando.includes('agente')) {
+        switchTab('apoio', document.getElementById('tab-apoio'));
+        solicitarVoluntario();
+        responderFalado('Buscando um voluntário verificado pelo Gov BR e o posto da prefeitura mais próximo.');
+        return;
+      }
+
+      if (comando.includes('posto') || comando.includes('prefeitura') || comando.includes('apoio') || comando.includes('cras')) {
+        switchTab('apoio', document.getElementById('tab-apoio'));
+        responderFalado('Abrindo a aba de apoio humano e postos da prefeitura próximos.');
+        return;
+      }
+
+      if (comando.includes('reportar') || comando.includes('barreira') || comando.includes('buraco') || comando.includes('156')) {
+        switchTab('zeladoria', document.getElementById('tab-zeladoria'));
+        reportarBarreira();
+        responderFalado('Registrando a barreira urbana e abrindo protocolo automático no Portal 156 da prefeitura.');
+        return;
+      }
+
+      if (comando.includes('contraste')) {
+        const ativo = toggleContrast();
+        responderFalado(ativo ? 'Modo de alto contraste ativado.' : 'Modo de alto contraste desativado.');
+        return;
+      }
+
+      if (comando.includes('fonte') || comando.includes('texto') || comando.includes('aumentar')) {
+        const ativo = toggleFontSize();
+        responderFalado(ativo ? 'Tamanho do texto aumentado.' : 'Tamanho do texto restaurado ao padrão.');
+        return;
+      }
+
+      if (comando.includes('fechar')) {
+        fecharModalAjuda();
+        fecharBarraVoz();
+        return;
+      }
+
+      responderFalado(`Não reconheci o comando "${cmd}". Diga "ajuda" ou clique em "O que posso dizer?" para ver os comandos aceitos.`);
+    }
+
+    function iniciarMicrofone() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      // 6. Estado de erro: navegador sem suporte
+      if (!SpeechRec) {
+        atualizarUIMicrofone(
+          'error',
+          '⚠️ Reconhecimento de voz indisponível neste navegador',
+          'Use Google Chrome ou Microsoft Edge para comandos por voz, ou clique em "O que posso dizer?" para testar os comandos por toque.'
+        );
+        return;
+      }
+
+      if (isSpeaking && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        isSpeaking = false;
+      }
+
+      recognition = new SpeechRec();
+      recognition.lang = 'pt-BR';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+
+      recognition.onstart = () => {
+        isListening = true;
+        atualizarUIMicrofone('listening', '🎙️ Ouvindo... fale seu comando agora', 'Aguardando sua fala...');
+      };
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const t = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += t;
+          } else {
+            interim += t;
+          }
+        }
+
+        if (interim) {
+          atualizarUIMicrofone('listening', '🎙️ Transcrevendo ao vivo...', `"${interim}"`);
+        }
+
+        if (finalTranscript) {
+          isListening = false;
+          atualizarUIMicrofone('idle', '✅ Comando reconhecido', `Você disse: "${finalTranscript.trim()}"`);
+          executar(finalTranscript.trim());
+        }
+      };
+
+      // 6. Estados de erro detalhados
+      recognition.onerror = (event) => {
+        isListening = false;
+        let msg = 'Ocorreu um erro ao capturar o áudio. Tente novamente.';
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          msg = 'Permissão de microfone negada. Libere o acesso ao microfone no cadeado da barra de endereço do navegador.';
+        } else if (event.error === 'no-speech') {
+          msg = 'Nenhuma fala foi detectada. Pressione Alt+M e fale próximo ao microfone.';
+        } else if (event.error === 'audio-capture') {
+          msg = 'Nenhum microfone encontrado no dispositivo. Verifique sua conexão de áudio.';
+        } else if (event.error === 'network') {
+          msg = 'Erro de rede no serviço de reconhecimento de voz. Verifique sua conexão.';
+        }
+        atualizarUIMicrofone('error', `⚠️ Erro de voz (${event.error})`, msg);
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        if (!isSpeaking) {
+          const btn = document.getElementById('btnMicPrincipal');
+          btn.classList.remove('listening');
+          btn.setAttribute('aria-pressed', 'false');
+          document.getElementById('micLabel').textContent = 'Comando de Voz';
+          document.getElementById('waveBars').classList.add('paused');
+        }
+      };
+
+      try {
+        recognition.start();
+      } catch (e) {
+        atualizarUIMicrofone('error', '⚠️ Erro ao iniciar microfone', 'Não foi possível iniciar a captura. Tente novamente.');
+      }
+    }
+
+    function alternarMicrofone() {
+      if (isListening) {
+        pararMicrofone();
+        atualizarUIMicrofone('idle', 'Microfone pausado', 'Captura interrompida. Pressione Alt+M para falar novamente.');
+      } else {
+        iniciarMicrofone();
+      }
+    }
+
+    // Atalho de teclado acessível: Alt+M para microfone e Escape para fechar modal
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey && (e.key === 'm' || e.key === 'M')) {
+        e.preventDefault();
+        alternarMicrofone();
+      } else if (e.key === 'Escape') {
+        fecharModalAjuda();
+      }
+    });
+
+    // 5. Modal "O que posso dizer?"
+    function abrirModalAjuda() {
+      document.getElementById('modalAjudaVoz').classList.add('open');
+    }
+
+    function fecharModalAjuda() {
+      document.getElementById('modalAjudaVoz').classList.remove('open');
+    }
+
+    function testarComandoModal(cmd) {
+      fecharModalAjuda();
+      atualizarUIMicrofone('idle', '✅ Comando selecionado', `Executando: "${cmd}"`);
+      executar(cmd);
+    }
+
+    // =========================================================
+    // INTEGRAÇÃO COM A API FASTAPI (OSM + OSRM + PORTAL 156)
+    // =========================================================
+    async function calcularRotaAcessivel() {
+      const lista = document.getElementById('listaPassos');
+      lista.innerHTML = '<div class="step-card">Consultando piso tátil, guias rebaixadas e postos públicos no OpenStreetMap...</div>';
+
+      try {
+        const resp = await fetch('/rotas/acessivel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ origem, destino, perfil: perfilAtual })
+        });
+        const data = await resp.json();
+
+        document.getElementById('metricIndice').textContent = `${data.indice_acessibilidade}%`;
+        document.getElementById('metricDist').textContent = `${data.distancia_total_metros}m • ${data.tempo_estimado_minutos}m`;
+        const infra = data.infraestrutura_detectada_osm;
+        document.getElementById('metricInfra').textContent = `${infra.rampas_rebaixadas}R • ${infra.trechos_piso_tatil}T`;
+
+        if (rotaLayer) map.removeLayer(rotaLayer);
+        if (rotaGlowLayer) map.removeLayer(rotaGlowLayer);
+
+        rotaGlowLayer = L.geoJSON(data.geometria_geojson, {
+          style: { color: '#10b981', weight: 14, opacity: 0.22 }
+        }).addTo(map);
+
+        rotaLayer = L.geoJSON(data.geometria_geojson, {
+          style: { color: '#10b981', weight: 5, opacity: 0.95 }
+        }).addTo(map);
+
+        map.fitBounds(rotaLayer.getBounds(), { paddingTopLeft: [450, 90], paddingBottomRight: [40, 40] });
+
+        pontosLayer.clearLayers();
+        const postos = infra.postos_apoio_proximos || [];
+        postos.forEach(posto => {
+          if (posto.lat && posto.lon) {
+            L.circleMarker([posto.lat, posto.lon], {
+              radius: 9, fillColor: '#38bdf8', color: '#0f172a', weight: 2, fillOpacity: 0.95
+            }).addTo(pontosLayer).bindPopup(`<strong>🏛️ ${posto.nome}</strong><br>Distância: ${posto.distancia_m}m`);
+          }
+        });
+
+        const listaPostosEl = document.getElementById('listaPostos');
+        listaPostosEl.innerHTML = postos.map(p => `
+          <div class="posto-card">
+            <div>
+              <h4>🏛️ ${p.nome}</h4>
+              <p>A ${p.distancia_m}m do ponto inicial • Apoio presencial</p>
+            </div>
+            ${p.lat && p.lon ? `<button class="mini-btn" onclick="definirDestinoPosto(${p.lat}, ${p.lon}, '${p.nome.replace(/'/g, '')}')">Ir até lá</button>` : ''}
+          </div>
+        `).join('');
+
+        (infra.marcadores_infra || []).forEach(m => {
+          L.circleMarker([m.lat, m.lon], {
+            radius: 5, fillColor: '#f59e0b', color: '#0f172a', weight: 1.5, fillOpacity: 0.9
+          }).addTo(pontosLayer).bindPopup(`♿ ${m.label}`);
+        });
+
+        ultimasInstrucoes = data.passos.map(p => p.instrucao_voz);
+        lista.innerHTML = data.passos.map(p => `
+          <div class="step-card">
+            <div><strong>${p.ordem}.</strong> ${p.instrucao_voz}</div>
+            <div class="chip-row">
+              ${p.alerta_haptico ? `<span class="chip sky">📳 ${p.alerta_haptico}</span>` : ''}
+              ${p.possui_rampa ? `<span class="chip">♿ Guia Rebaixada</span>` : ''}
+              ${p.possui_piso_tatil ? `<span class="chip amber">🦯 Piso Tátil</span>` : ''}
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        lista.innerHTML = '<div class="step-card">Não foi possível conectar ao servidor FastAPI. Verifique se o back-end está rodando.</div>';
+      }
+    }
+
+    function lerRotaEmVozAlta() {
+      const texto = ultimasInstrucoes.length
+        ? `Rota acessível para perfil ${perfilAtual}. ` + ultimasInstrucoes.join(' ')
+        : 'Bem-vindo ao RotaLivre. Selecione seu perfil e calcule uma rota acessível.';
+      responderFalado(texto);
+    }
+
+    function ditarRelatoPorVoz() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        document.getElementById('descBarreira').value = 'Calçada obstruída e sem rampa de acesso próximo ao cruzamento.';
+        return;
+      }
+      pararMicrofone();
+      const rec = new SpeechRec();
+      rec.lang = 'pt-BR';
+      rec.onresult = (e) => {
+        document.getElementById('descBarreira').value = e.results[0][0].transcript;
+      };
+      rec.start();
+    }
+
+    async function solicitarVoluntario() {
+      const box = document.getElementById('resultadoVoluntario');
+      box.innerHTML = '<div class="alert-box">Localizando voluntário verificado (Gov.br) e posto municipal...</div>';
+      try {
+        const resp = await fetch('/acompanhamento/solicitar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cidadao_nome: 'Cidadão RotaLivre',
+            perfil: perfilAtual,
+            ponto_encontro: origem,
+            destino_descricao: 'Acompanhamento urbano assistido'
+          })
+        });
+        const data = await resp.json();
+        box.innerHTML = `
+          <div class="alert-box">
+            <strong>🤝 Acompanhante Confirmado!</strong><br>
+            ${data.nome_responsavel}<br>
+            <strong>Posto de Referência:</strong> ${data.posto_referencia}<br>
+            <strong>Previsão:</strong> ${data.tempo_chegada_minutos} min • <strong>Senha de Voz:</strong> <code>${data.codigo_verificacao_voz}</code>
+          </div>
+        `;
+      } catch (e) {
+        box.innerHTML = '<div class="alert-box">Erro ao conectar ao serviço de voluntários.</div>';
+      }
+    }
+
+    async function reportarBarreira() {
+      const box = document.getElementById('resultadoOcorrencia');
+      const tipo = document.getElementById('tipoBarreira').value;
+      const desc = document.getElementById('descBarreira').value;
+      try {
+        const resp = await fetch('/ocorrencias', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            localizacao: destino,
+            tipo_barreira: tipo,
+            descricao_voz: desc
+          })
+        });
+        const data = await resp.json();
+        L.circleMarker([destino.lat, destino.lon], {
+          radius: 10, fillColor: '#f43f5e', color: '#fff', weight: 2, fillOpacity: 0.95
+        }).addTo(pontosLayer).bindPopup(`⚠️ Barreira Reportada • Protocolo ${data.protocolo_prefeitura_156}`).openPopup();
+
+        box.innerHTML = `
+          <div class="alert-box" style="border-color:var(--amber)">
+            <strong>📨 Protocolo Aberto na Prefeitura!</strong><br>
+            ${data.mensagem}
+          </div>
+        `;
+      } catch (e) {
+        box.innerHTML = '<div class="alert-box">Erro ao enviar ocorrência ao Portal 156.</div>';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      atualizarTextoCoordenadas(presets.paulista.nomeOrig, presets.paulista.nomeDest);
+      calcularRotaAcessivel();
+    });
+  </script>
 </body>
 </html>
