@@ -1430,9 +1430,13 @@
       ultimaRotaData = { distancia_total_metros: distancia, tempo_estimado_minutos: duracaoMin, passos, geometria_geojson: geometry };
       localStorage.setItem('rotalivre_ultima_rota', JSON.stringify(ultimaRotaData));
 
-      document.getElementById('metricIndice').textContent = '94,5%';
+      const metricasReais = window.RL?.servicos
+        ? RL.servicos.calcularMetricasPainel({ relatos: relatosComunidade, distanciaMetros: distancia, perfil: perfilAtual })
+        : { indiceFormatado: '94,5%', infraResumo: '8R • 6T' };
+
+      document.getElementById('metricIndice').textContent = metricasReais.indiceFormatado;
       document.getElementById('metricDist').textContent = `${distancia} m • ${duracaoMin} min`;
-      document.getElementById('metricInfra').textContent = '8R • 6T';
+      document.getElementById('metricInfra').textContent = metricasReais.infraResumo;
 
       if (rotaLayer) map.removeLayer(rotaLayer);
       if (rotaGlowLayer) map.removeLayer(rotaGlowLayer);
@@ -1707,5 +1711,6 @@
   </script>
 
   <script src="js/comunidade.js"></script>
+  <script src="js/servicos.js"></script>
 </body>
 </html>
