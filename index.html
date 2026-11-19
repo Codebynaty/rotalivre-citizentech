@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RotaLivre — Mapa Colaborativo de Acessibilidade</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+  integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin="">
+<style>
+  :root{
+    --bg:#0f1720; --panel:#18222e; --panel2:#1f2b3a; --borda:#2b3a4d;
+    --texto:#eaf1f8; --suave:#9fb0c3; --acento:#2ea6ff; --acento-escuro:#1b6fb3;
+    --buraco:#e53935; --rampa:#fb8c00; --tatil:#fdd835; --obra:#8e44ad;
+    --voluntario:#2ea6ff; --posto:#2e9e5b;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#eef3f8; --panel:#ffffff; --panel2:#f4f7fb; --borda:#d6e0ea; --texto:#17212c; --suave:#5a6b7c; }
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{ font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--texto);
+        display:flex; flex-direction:column; height:100vh; }
+  header{ padding:12px 16px; background:var(--panel); border-bottom:1px solid var(--borda); }
+  header h1{ margin:0; font-size:1.15rem; }
+  header p{ margin:3px 0 0; color:var(--suave); font-size:.85rem; }
+  .corpo{ flex:1; display:flex; min-height:0; }
+  #painel{ width:300px; max-width:84vw; background:var(--panel); border-right:1px solid var(--borda);
+           overflow-y:auto; padding:14px; }
+  #mapa{ flex:1; min-height:0; }
+  h2{ font-size:.8rem; text-transform:uppercase; letter-spacing:.5px; color:var(--suave); margin:16px 0 8px; }
+  h2:first-child{ margin-top:0; }
+  .cats{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .cat{ display:flex; align-items:center; gap:8px; padding:10px 8px; min-height:48px; border-radius:10px;
+        border:2px solid var(--borda); background:var(--panel2); color:var(--texto); cursor:pointer;
+        font-size:.82rem; text-align:left; }
+  .cat .bola{ width:16px; height:16px; border-radius:50%; flex:0 0 auto; }
+  .cat[aria-pressed="true"]{ border-color:var(--acento); box-shadow:0 0 0 2px rgba(46,166,255,.25); }
+  .cat:focus-visible{ outline:3px solid var(--acento); outline-offset:1px; }
+  .dica{ font-size:.8rem; color:var(--suave); margin:10px 0; line-height:1.4; }
+  .dica b{ color:var(--texto); }
+  .legenda{ list-style:none; margin:0; padding:0; }
+  .legenda li{ display:flex; align-items:center; gap:8px; padding:6px 4px; font-size:.85rem; }
+  .legenda input{ width:18px; height:18px; }
+  .legenda .bola{ width:14px; height:14px; border-radius:50%; }
+  .legenda .n{ margin-left:auto; color:var(--suave); font-variant-numeric:tabular-nums; }
+  .acoes{ margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+  button.linha{ padding:10px; min-height:44px; border-radius:10px; border:1px solid var(--borda);
+                background:var(--panel2); color:var(--texto); cursor:pointer; font-size:.85rem; }
+  button.linha:hover{ border-color:var(--acento); }
+  .rodape{ margin-top:16px; font-size:.75rem; color:var(--suave); line-height:1.5; }
+  .rodape a{ color:var(--acento); }
+  /* formulário dentro do popup */
+  .form-relato{ min-width:210px; }
+  .form-relato label{ display:block; font-size:.78rem; color:#333; margin:8px 0 3px; font-weight:600; }
+  .form-relato select,.form-relato textarea{ width:100%; padding:6px; border:1px solid #bbb; border-radius:6px; font:inherit; font-size:.85rem; }
+  .form-relato textarea{ resize:vertical; min-height:48px; }
+  .form-relato .btns{ display:flex; gap:6px; margin-top:10px; }
+  .form-relato button{ flex:1; padding:8px; border:none; border-radius:6px; cursor:pointer; font-weight:600; }
+  .form-relato .ok{ background:#2ea6ff; color:#fff; }
+  .form-relato .cancel{ background:#e8edf2; color:#333; }
+  .pin{ display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg); box-shadow:0 2px 6px rgba(0,0,0,.4); border:2px solid #fff; }
+  .pin span{ transform:rotate(45deg); font-size:15px; line-height:1; }
+  .pop h3{ margin:0 0 4px; font-size:.95rem; color:#17212c; }
+  .pop .grav{ display:inline-block; padding:1px 7px; border-radius:20px; font-size:.72rem; font-weight:700; color:#fff; }
+  .pop .meta{ color:#667; font-size:.75rem; margin:6px 0; }
+  .pop p{ margin:4px 0; color:#223; font-size:.85rem; }
+  .pop button{ margin-top:6px; padding:5px 8px; border:1px solid #e53935; color:#e53935; background:#fff; border-radius:6px; cursor:pointer; font-size:.78rem; }
+  @media (max-width:640px){
+    .corpo{ flex-direction:column; } #painel{ width:100%; max-width:100%; max-height:42vh; border-right:none; border-bottom:1px solid var(--borda); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧭 RotaLivre — Mapa Colaborativo de Acessibilidade</h1>
+  <p>Reporte barreiras urbanas e pontos de apoio. Escolha um tipo e toque no mapa para registrar a circunstância.</p>
+</header>
+
+<div class="corpo">
+  <aside id="painel" aria-label="Controles do mapa">
+    <h2>Adicionar relato</h2>
+    <div class="cats" id="cats" role="group" aria-label="Tipo de relato"></div>
+    <p class="dica" id="dica">Selecione um tipo acima e <b>toque no mapa</b> no local do relato.</p>
+
+    <h2>Camadas no mapa</h2>
+    <ul class="legenda" id="legenda"></ul>
+
+    <div class="acoes">
+      <button class="linha" id="btn-local">📍 Centralizar na minha localização</button>
+      <button class="linha" id="btn-limpar">🗑️ Limpar meus relatos</button>
+    </div>
+
+    <p class="rodape">
+      Dados salvos apenas neste navegador (demonstração). Mapa por
+      <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> + Leaflet.<br>
+      <b>RotaLivre · CitizenTech Urbano</b> — GS 2026.2 · FIAP.
+    </p>
+  </aside>
+  <div id="mapa" role="application" aria-label="Mapa de acessibilidade urbana"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+  integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzWQzxuSg4DiQUCpauz/EWjgk5TYQqX/kvn9pG1NpYfqg==" crossorigin=""></script>
+<script>
+(function(){
+  "use strict";
+  var CHAVE = "rotalivre_relatos_v1";
+
+  // Tipos de relato (categorias)
+  var TIPOS = {
+    buraco:     { nome:"Buraco / calçada ruim", emoji:"🕳️", cor:"#e53935", obstaculo:true },
+    rampa:      { nome:"Falta de rampa",         emoji:"♿", cor:"#fb8c00", obstaculo:true },
+    tatil:      { nome:"Piso tátil interrompido", emoji:"🟡", cor:"#f9a825", obstaculo:true },
+    obra:       { nome:"Obra / obstrução",        emoji:"🚧", cor:"#8e44ad", obstaculo:true },
+    voluntario: { nome:"Voluntário disponível",   emoji:"🙋", cor:"#2ea6ff", obstaculo:false },
+    posto:      { nome:"Posto de apoio",          emoji:"🏥", cor:"#2e9e5b", obstaculo:false }
+  };
+  var GRAV = { baixa:"#4caf50", media:"#fb8c00", alta:"#e53935" };
+
+  var ativo = null; // tipo selecionado para adicionar
+
+  var mapa = L.map("mapa", { zoomControl:true }).setView([-23.5505, -46.6333], 14);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom:19, attribution:"© OpenStreetMap"
+  }).addTo(mapa);
+
+  // Uma camada por tipo, para poder ligar/desligar
+  var camadas = {};
+  Object.keys(TIPOS).forEach(function(t){ camadas[t] = L.layerGroup().addTo(mapa); });
+
+  function carregar(){
+    try { return JSON.parse(localStorage.getItem(CHAVE)) || null; } catch(e){ return null; }
+  }
+  function salvar(lista){
+    try { localStorage.setItem(CHAVE, JSON.stringify(lista)); } catch(e){}
+  }
+
+  var relatos = carregar();
+  if (!relatos){ relatos = exemplos(); salvar(relatos); }
+
+  function exemplos(){
+    var agora = Date.now();
+    return [
+      { id:"ex1", tipo:"buraco", lat:-23.5515, lng:-46.6360, desc:"Buraco grande na esquina, sem sinalização.", grav:"alta", ts:agora },
+      { id:"ex2", tipo:"rampa", lat:-23.5490, lng:-46.6300, desc:"Calçada sem rebaixamento para cadeirante.", grav:"media", ts:agora },
+      { id:"ex3", tipo:"tatil", lat:-23.5530, lng:-46.6395, desc:"Piso tátil interrompido por mesa de bar.", grav:"media", ts:agora },
+      { id:"ex4", tipo:"obra", lat:-23.5470, lng:-46.6350, desc:"Obra ocupando toda a calçada.", grav:"alta", ts:agora },
+      { id:"ex5", tipo:"voluntario", lat:-23.5500, lng:-46.6290, desc:"Voluntário verificado, disponível pela manhã.", grav:"baixa", ts:agora },
+      { id:"ex6", tipo:"posto", lat:-23.5540, lng:-46.6320, desc:"Posto de apoio da subprefeitura (CRAS).", grav:"baixa", ts:agora }
+    ];
+  }
+
+  function iconePin(tipo){
+    var t = TIPOS[tipo];
+    return L.divIcon({
+      className:"", iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-28],
+      html:'<div class="pin" style="background:'+t.cor+'"><span>'+t.emoji+'</span></div>'
+    });
+  }
+
+  function quando(ts){
+    var d = new Date(ts);
+    return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  }
+
+  function conteudoPopup(r){
+    var t = TIPOS[r.tipo];
+    var grav = t.obstaculo ? '<span class="grav" style="background:'+(GRAV[r.grav]||"#888")+'">'+(r.grav||"—")+'</span>' : '';
+    return '<div class="pop">'
+      + '<h3>'+t.emoji+' '+t.nome+'</h3>'
+      + (grav ? '<div>Gravidade: '+grav+'</div>' : '')
+      + '<p>'+(r.desc ? escapar(r.desc) : "<i>Sem descrição</i>")+'</p>'
+      + '<div class="meta">Registrado em '+quando(r.ts)+'</div>'
+      + '<button data-remover="'+r.id+'">Remover</button>'
+      + '</div>';
+  }
+
+  function escapar(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+  function desenhar(r){
+    var m = L.marker([r.lat, r.lng], { icon:iconePin(r.tipo), keyboard:true, title:TIPOS[r.tipo].nome });
+    m.bindPopup(conteudoPopup(r));
+    m._relatoId = r.id;
+    camadas[r.tipo].addLayer(m);
+  }
+
+  function redesenhar(){
+    Object.keys(camadas).forEach(function(t){ camadas[t].clearLayers(); });
+    relatos.forEach(desenhar);
+    atualizarContagens();
+  }
+
+  // Remover via botão no popup
+  mapa.on("popupopen", function(e){
+    var btn = e.popup._contentNode.querySelector("[data-remover]");
+    if (btn) btn.addEventListener("click", function(){
+      var id = btn.getAttribute("data-remover");
+      relatos = relatos.filter(function(r){ return r.id !== id; });
+      salvar(relatos); mapa.closePopup(); redesenhar();
+    });
+  });
+
+  // Adicionar: clicar no mapa com um tipo ativo abre um formulário
+  mapa.on("click", function(e){
+    if (!ativo) return;
+    abrirForm(e.latlng);
+  });
+
+  function abrirForm(latlng){
+    var opts = Object.keys(TIPOS).map(function(t){
+      return '<option value="'+t+'"'+(t===ativo?' selected':'')+'>'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</option>';
+    }).join("");
+    var html = '<form class="form-relato">'
+      + '<label>Tipo</label><select name="tipo">'+opts+'</select>'
+      + '<label>Gravidade</label><select name="grav"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select>'
+      + '<label>Circunstância</label><textarea name="desc" placeholder="Ex.: buraco fundo, calçada bloqueada por carro..."></textarea>'
+      + '<div class="btns"><button type="button" class="cancel">Cancelar</button><button type="submit" class="ok">Adicionar</button></div>'
+      + '</form>';
+    var pop = L.popup({ minWidth:220 }).setLatLng(latlng).setContent(html).openOn(mapa);
+    var form = pop._contentNode.querySelector("form");
+    form.querySelector(".cancel").addEventListener("click", function(){ mapa.closePopup(); });
+    form.addEventListener("submit", function(ev){
+      ev.preventDefault();
+      var r = {
+        id: "r"+Date.now()+Math.random().toString(16).slice(2,6),
+        tipo: form.tipo.value, grav: form.grav.value,
+        desc: form.desc.value.trim(), lat:latlng.lat, lng:latlng.lng, ts:Date.now()
+      };
+      relatos.push(r); salvar(relatos); mapa.closePopup(); redesenhar();
+      camadas[r.tipo].addTo(mapa); // garante camada visível
+      document.getElementById("chk-"+r.tipo).checked = true;
+    });
+  }
+
+  // --- Painel: botões de tipo ---
+  var catsEl = document.getElementById("cats");
+  Object.keys(TIPOS).forEach(function(t){
+    var b = document.createElement("button");
+    b.className = "cat"; b.type = "button"; b.setAttribute("aria-pressed","false");
+    b.innerHTML = '<span class="bola" style="background:'+TIPOS[t].cor+'"></span><span>'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</span>';
+    b.addEventListener("click", function(){
+      ativo = (ativo === t) ? null : t;
+      Array.prototype.forEach.call(catsEl.children, function(c){ c.setAttribute("aria-pressed","false"); });
+      if (ativo){ b.setAttribute("aria-pressed","true");
+        document.getElementById("dica").innerHTML = 'Toque no mapa para registrar: <b>'+TIPOS[t].nome+'</b>.';
+      } else {
+        document.getElementById("dica").innerHTML = 'Selecione um tipo acima e <b>toque no mapa</b> no local do relato.';
+      }
+    });
+    catsEl.appendChild(b);
+  });
+
+  // --- Painel: legenda com contagem + toggle de camada ---
+  var legEl = document.getElementById("legenda");
+  Object.keys(TIPOS).forEach(function(t){
+    var li = document.createElement("li");
+    li.innerHTML = '<input type="checkbox" id="chk-'+t+'" checked aria-label="Mostrar '+TIPOS[t].nome+'">'
+      + '<span class="bola" style="background:'+TIPOS[t].cor+'"></span>'
+      + '<label for="chk-'+t+'">'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</label>'
+      + '<span class="n" id="n-'+t+'">0</span>';
+    legEl.appendChild(li);
+    li.querySelector("input").addEventListener("change", function(e){
+      if (e.target.checked) camadas[t].addTo(mapa); else mapa.removeLayer(camadas[t]);
+    });
+  });
+
+  function atualizarContagens(){
+    Object.keys(TIPOS).forEach(function(t){
+      var n = relatos.filter(function(r){ return r.tipo===t; }).length;
+      document.getElementById("n-"+t).textContent = n;
+    });
+  }
+
+  document.getElementById("btn-local").addEventListener("click", function(){
+    if (!navigator.geolocation){ alert("Geolocalização não suportada."); return; }
+    navigator.geolocation.getCurrentPosition(function(p){
+      mapa.setView([p.coords.latitude, p.coords.longitude], 16);
+    }, function(){ alert("Não foi possível obter sua localização."); });
+  });
+
+  document.getElementById("btn-limpar").addEventListener("click", function(){
+    if (confirm("Apagar todos os relatos salvos neste navegador?")){
+      relatos = []; salvar(relatos); redesenhar();
+    }
+  });
+
+  redesenhar();
+})();
+</script>
+</body>
+</html>

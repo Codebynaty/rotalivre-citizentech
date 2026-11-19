@@ -7,6 +7,16 @@
 
 ---
 
+## 🗺️ Protótipo interativo — Mapa Colaborativo
+
+Além dos mapas mentais, este repositório traz um **protótipo funcional** (`index.html`): um mapa colaborativo de acessibilidade, no estilo **Waze**, onde o cidadão **registra barreiras urbanas** (buracos, falta de rampa, piso tátil interrompido, obras) e **pontos de apoio** (voluntários e postos), cada um com a sua **circunstância** (descrição + gravidade).
+
+- **Acesse online:** https://codebynaty.github.io/rotalivre-citizentech/
+- **Rodar local:** abra o `index.html` em qualquer navegador.
+- **Tecnologia:** [Leaflet](https://leafletjs.com) + [OpenStreetMap](https://www.openstreetmap.org) (mapa); relatos salvos no próprio navegador (demonstração). Interface acessível (alvos de toque grandes, alto contraste, rótulos ARIA).
+
+---
+
 ## 1. Visão Geral do Problema e da Solução
 
 O ambiente urbano contemporâneo apresenta severas barreiras de acessibilidade para pessoas cegas, com baixa visão e cadeirantes. A escassez de dados atualizados sobre o estado real das calçadas, a interrupção frequente do piso tátil, a falta de rampas de acesso ou a presença de inclinações inadequadas, aliadas a obras e obstruções temporárias, transformam pequenos deslocamentos diários em rotas de alto risco.
