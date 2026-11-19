@@ -27,13 +27,13 @@ test("RL.offline - Upload com limite de tamanho e fila de sincronização", asyn
   });
 
   await t.test("Enfileira relatos offline e sincroniza ao reconectar", async () => {
-    global.navigator = { onLine: false };
+    Object.defineProperty(global, "navigator", { value: { onLine: false }, configurable: true });
     const qtd = RL.offline.enfileirarRelatoOffline({ id: "RL-OFF-1", tipo: "sem_rampa", descricao: "Teste offline" });
     assert.equal(qtd, 1);
     assert.equal(RL.offline.obterFila().length, 1);
 
     // Simula reconexão
-    global.navigator = { onLine: true };
+    Object.defineProperty(global, "navigator", { value: { onLine: true }, configurable: true });
     const enviados = [];
     const resultado = await RL.offline.sincronizarFila(async (item) => {
       enviados.push(item.id);
