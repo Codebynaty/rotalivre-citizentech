@@ -88,3 +88,44 @@ O **RotaLivre** é uma plataforma CitizenTech integrada que resolve essa lacuna 
 ## 4. Alinhamento com os ODS (ONU)
 * **ODS 10 – Redução das Desigualdades:** Promove a inclusão social e a autonomia de pessoas com deficiência física ou visual.
 * **ODS 11 – Cidades e Comunidades Sustentáveis:** Apoia o planejamento urbano inclusivo e o acesso seguro a espaços e transportes públicos.
+
+---
+
+## Arquitetura do Sistema
+
+```mermaid
+flowchart TB
+    UI["Interface Acessível (index.html + Leaflet + WCAG AAA)"]
+    VOZ["Voz & Geolocalização (RL.voz + RL.geo)"]
+    NAV["Navegação ao Vivo (RL.nav + RL.simulador)"]
+    OFF["Modo Offline & PWA (sw.js + RL.offline)"]
+    COM["Comunidade & SOS (RL.comunidade)"]
+    SRV["Resiliência & Métricas (RL.servicos)"]
+    SUPA[("Supabase (Auth + PostgreSQL RLS + Storage)")]
+    OSM["OpenStreetMap / OSRM"]
+
+    UI <--> VOZ
+    UI <--> NAV
+    UI <--> OFF
+    UI <--> COM
+    NAV --> SRV
+    VOZ --> SRV
+    SRV <--> OSM
+    OFF <--> SUPA
+    COM <--> SUPA
+```
+
+## Como Instalar e Rodar Localmente
+
+1. **Clonar o repositório:**
+   ```bash
+   git clone https://github.com/Codebynaty/rotalivre-citizentech.git
+   cd rotalivre-citizentech
+   ```
+2. **Rodar os testes automatizados (Node.js 18+):**
+   ```bash
+   npm test
+   ```
+3. **Abrir a aplicação:**
+   * Sirva a pasta raiz com um servidor local (ex.: extensão **Live Server** no VS Code ou `npx serve .`) para habilitar o **Service Worker** e os recursos offline.
+   * Para integrar ao Supabase em produção, execute `supabase/schema.sql` no SQL Editor do projeto e defina `window.SUPABASE_URL` e `window.SUPABASE_ANON_KEY`.
