@@ -3,289 +3,492 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RotaLivre — Mapa Colaborativo de Acessibilidade</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
-  integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin="">
+<title>RotaLivre — Navegação Urbana Acessível</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="">
 <style>
   :root{
-    --bg:#0f1720; --panel:#18222e; --panel2:#1f2b3a; --borda:#2b3a4d;
-    --texto:#eaf1f8; --suave:#9fb0c3; --acento:#2ea6ff; --acento-escuro:#1b6fb3;
-    --buraco:#e53935; --rampa:#fb8c00; --tatil:#fdd835; --obra:#8e44ad;
-    --voluntario:#2ea6ff; --posto:#2e9e5b;
+    --bg:#0e1621; --sup:#16212e; --sup2:#1d2a3a; --card:#1b2735; --borda:#2a3b50;
+    --texto:#eaf1f8; --suave:#9fb2c6; --fraco:#6a7e93;
+    --acento:#2ea6ff; --acento2:#1b78c2; --ok:#2e9e5b; --alerta:#fb8c00; --perigo:#e5484d;
+    --buraco:#e5484d; --rampa:#fb8c00; --tatil:#f4c020; --obra:#8b5cf6; --voluntario:#2ea6ff; --posto:#2e9e5b;
+    --escala:1;
   }
-  @media (prefers-color-scheme: light){
-    :root{ --bg:#eef3f8; --panel:#ffffff; --panel2:#f4f7fb; --borda:#d6e0ea; --texto:#17212c; --suave:#5a6b7c; }
+  :root[data-tema="claro"]{
+    --bg:#eef3f8; --sup:#ffffff; --sup2:#f3f7fb; --card:#ffffff; --borda:#d8e2ec;
+    --texto:#132132; --suave:#51657a; --fraco:#8296aa;
+  }
+  :root[data-contraste="alto"]{
+    --bg:#000; --sup:#000; --sup2:#0a0a0a; --card:#0a0a0a; --borda:#ffd400;
+    --texto:#fff; --suave:#ffe84d; --fraco:#ffe84d; --acento:#ffd400; --acento2:#ffd400;
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; }
-  body{ font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--texto);
-        display:flex; flex-direction:column; height:100vh; }
-  header{ padding:12px 16px; background:var(--panel); border-bottom:1px solid var(--borda); }
-  header h1{ margin:0; font-size:1.15rem; }
-  header p{ margin:3px 0 0; color:var(--suave); font-size:.85rem; }
+  body{ font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--texto);
+        display:flex; flex-direction:column; height:100vh; font-size:calc(15px*var(--escala)); overflow:hidden; }
+  button{ font-family:inherit; }
+  :focus-visible{ outline:3px solid var(--acento); outline-offset:2px; }
+
+  /* ---------------- Top bar ---------------- */
+  header{ display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--sup);
+          border-bottom:1px solid var(--borda); flex-wrap:wrap; z-index:1200; }
+  .marca{ display:flex; align-items:center; gap:9px; font-weight:800; font-size:1.1rem; }
+  .marca .logo{ font-size:1.4rem; }
+  .marca small{ display:block; font-weight:500; color:var(--suave); font-size:.68rem; letter-spacing:.3px; }
+  header .espaco{ flex:1; }
+  .perfil{ display:flex; align-items:center; gap:7px; background:var(--sup2); border:1px solid var(--borda);
+           border-radius:999px; padding:5px 12px 5px 8px; }
+  .perfil select{ background:transparent; color:var(--texto); border:none; font-size:.85rem; font-weight:600; }
+  .perfil .av{ width:26px;height:26px;border-radius:50%;background:var(--acento);display:grid;place-items:center;font-size:.95rem; }
+  .ferramentas{ display:flex; gap:6px; align-items:center; }
+  .icbtn{ min-width:40px; height:40px; padding:0 10px; border-radius:10px; border:1px solid var(--borda);
+          background:var(--sup2); color:var(--texto); cursor:pointer; font-size:.95rem; display:inline-flex; align-items:center; gap:5px; }
+  .icbtn:hover{ border-color:var(--acento); }
+  .icbtn[aria-pressed="true"]{ background:var(--acento); color:#001; border-color:var(--acento); }
+  .sos{ background:var(--perigo); color:#fff; border:none; font-weight:800; height:40px; padding:0 14px; border-radius:10px; cursor:pointer; }
+  .sos:hover{ filter:brightness(1.08); }
+
+  /* ---------------- Layout ---------------- */
   .corpo{ flex:1; display:flex; min-height:0; }
-  #painel{ width:300px; max-width:84vw; background:var(--panel); border-right:1px solid var(--borda);
-           overflow-y:auto; padding:14px; }
-  #mapa{ flex:1; min-height:0; }
-  h2{ font-size:.8rem; text-transform:uppercase; letter-spacing:.5px; color:var(--suave); margin:16px 0 8px; }
-  h2:first-child{ margin-top:0; }
+  nav.abas{ width:62px; background:var(--sup); border-right:1px solid var(--borda); display:flex; flex-direction:column;
+            align-items:center; padding-top:10px; gap:4px; }
+  nav.abas button{ width:52px; height:56px; border:none; background:transparent; color:var(--suave); cursor:pointer;
+            border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:.62rem; }
+  nav.abas button .i{ font-size:1.3rem; }
+  nav.abas button[aria-selected="true"]{ background:var(--sup2); color:var(--acento); }
+  aside#lateral{ width:340px; max-width:86vw; background:var(--sup); border-right:1px solid var(--borda); overflow-y:auto; }
+  .paineis > section{ display:none; padding:16px; }
+  .paineis > section.ativo{ display:block; }
+  #mapa{ flex:1; min-height:0; position:relative; }
+
+  h2.tit{ margin:0 0 4px; font-size:1.05rem; }
+  p.sub{ margin:0 0 14px; color:var(--suave); font-size:.85rem; line-height:1.4; }
+  h3.sec{ font-size:.72rem; text-transform:uppercase; letter-spacing:.6px; color:var(--fraco); margin:18px 0 8px; }
+
+  label.campo{ display:block; font-size:.78rem; color:var(--suave); margin:10px 0 4px; font-weight:600; }
+  input.txt,select.txt{ width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--borda);
+        background:var(--sup2); color:var(--texto); font-size:.9rem; }
+  .btn{ width:100%; padding:12px; border-radius:10px; border:none; background:var(--acento); color:#001b2e;
+        font-weight:700; font-size:.92rem; cursor:pointer; margin-top:12px; }
+  .btn:hover{ filter:brightness(1.06); }
+  .btn.sec{ background:var(--sup2); color:var(--texto); border:1px solid var(--borda); }
+  .btn.ok{ background:var(--ok); color:#fff; } .btn.perigo{ background:var(--perigo); color:#fff; }
+
+  .card{ background:var(--card); border:1px solid var(--borda); border-radius:14px; padding:14px; margin-top:12px; }
+  .linha{ display:flex; align-items:center; gap:10px; }
+  .pill{ display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; font-size:.72rem; font-weight:700; }
+  .mut{ color:var(--suave); } .fw{ font-weight:700; }
+
+  .score{ display:flex; align-items:center; gap:12px; }
+  .score .num{ font-size:2rem; font-weight:800; }
+  .barra{ height:9px; border-radius:999px; background:var(--sup2); overflow:hidden; }
+  .barra > i{ display:block; height:100%; border-radius:999px; }
+
+  ol.passos{ list-style:none; margin:10px 0 0; padding:0; }
+  ol.passos li{ display:flex; gap:10px; padding:9px 0; border-bottom:1px dashed var(--borda); font-size:.86rem; }
+  ol.passos li:last-child{ border-bottom:none; }
+  ol.passos .ic{ width:28px; height:28px; border-radius:8px; background:var(--sup2); display:grid; place-items:center; flex:0 0 auto; }
+  ol.passos small{ color:var(--suave); }
+
   .cats{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .cat{ display:flex; align-items:center; gap:8px; padding:10px 8px; min-height:48px; border-radius:10px;
-        border:2px solid var(--borda); background:var(--panel2); color:var(--texto); cursor:pointer;
-        font-size:.82rem; text-align:left; }
-  .cat .bola{ width:16px; height:16px; border-radius:50%; flex:0 0 auto; }
-  .cat[aria-pressed="true"]{ border-color:var(--acento); box-shadow:0 0 0 2px rgba(46,166,255,.25); }
-  .cat:focus-visible{ outline:3px solid var(--acento); outline-offset:1px; }
-  .dica{ font-size:.8rem; color:var(--suave); margin:10px 0; line-height:1.4; }
-  .dica b{ color:var(--texto); }
+  .cat{ display:flex; align-items:center; gap:8px; padding:11px 9px; min-height:50px; border-radius:11px;
+        border:2px solid var(--borda); background:var(--sup2); color:var(--texto); cursor:pointer; font-size:.8rem; text-align:left; }
+  .cat .bola{ width:15px;height:15px;border-radius:50%;flex:0 0 auto; }
+  .cat[aria-pressed="true"]{ border-color:var(--acento); box-shadow:0 0 0 3px rgba(46,166,255,.22); }
+
   .legenda{ list-style:none; margin:0; padding:0; }
-  .legenda li{ display:flex; align-items:center; gap:8px; padding:6px 4px; font-size:.85rem; }
-  .legenda input{ width:18px; height:18px; }
-  .legenda .bola{ width:14px; height:14px; border-radius:50%; }
-  .legenda .n{ margin-left:auto; color:var(--suave); font-variant-numeric:tabular-nums; }
-  .acoes{ margin-top:14px; display:flex; flex-direction:column; gap:8px; }
-  button.linha{ padding:10px; min-height:44px; border-radius:10px; border:1px solid var(--borda);
-                background:var(--panel2); color:var(--texto); cursor:pointer; font-size:.85rem; }
-  button.linha:hover{ border-color:var(--acento); }
-  .rodape{ margin-top:16px; font-size:.75rem; color:var(--suave); line-height:1.5; }
-  .rodape a{ color:var(--acento); }
-  /* formulário dentro do popup */
-  .form-relato{ min-width:210px; }
-  .form-relato label{ display:block; font-size:.78rem; color:#333; margin:8px 0 3px; font-weight:600; }
-  .form-relato select,.form-relato textarea{ width:100%; padding:6px; border:1px solid #bbb; border-radius:6px; font:inherit; font-size:.85rem; }
-  .form-relato textarea{ resize:vertical; min-height:48px; }
-  .form-relato .btns{ display:flex; gap:6px; margin-top:10px; }
-  .form-relato button{ flex:1; padding:8px; border:none; border-radius:6px; cursor:pointer; font-weight:600; }
-  .form-relato .ok{ background:#2ea6ff; color:#fff; }
-  .form-relato .cancel{ background:#e8edf2; color:#333; }
-  .pin{ display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50% 50% 50% 0;
-        transform:rotate(-45deg); box-shadow:0 2px 6px rgba(0,0,0,.4); border:2px solid #fff; }
-  .pin span{ transform:rotate(45deg); font-size:15px; line-height:1; }
-  .pop h3{ margin:0 0 4px; font-size:.95rem; color:#17212c; }
-  .pop .grav{ display:inline-block; padding:1px 7px; border-radius:20px; font-size:.72rem; font-weight:700; color:#fff; }
-  .pop .meta{ color:#667; font-size:.75rem; margin:6px 0; }
-  .pop p{ margin:4px 0; color:#223; font-size:.85rem; }
-  .pop button{ margin-top:6px; padding:5px 8px; border:1px solid #e53935; color:#e53935; background:#fff; border-radius:6px; cursor:pointer; font-size:.78rem; }
-  @media (max-width:640px){
-    .corpo{ flex-direction:column; } #painel{ width:100%; max-width:100%; max-height:42vh; border-right:none; border-bottom:1px solid var(--borda); }
+  .legenda li{ display:flex; align-items:center; gap:8px; padding:7px 2px; font-size:.84rem; }
+  .legenda .bola{ width:13px;height:13px;border-radius:50%; } .legenda .n{ margin-left:auto; color:var(--suave); font-variant-numeric:tabular-nums; }
+
+  .pessoa{ display:flex; align-items:center; gap:11px; }
+  .pessoa .av{ width:42px;height:42px;border-radius:50%; background:var(--sup2); display:grid; place-items:center; font-size:1.2rem; flex:0 0 auto; }
+  .pessoa .nome{ font-weight:700; font-size:.9rem; } .pessoa .meta{ font-size:.76rem; color:var(--suave); }
+  .estrelas{ color:#f4c020; letter-spacing:1px; font-size:.82rem; }
+
+  .kpis{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .kpi{ background:var(--card); border:1px solid var(--borda); border-radius:14px; padding:13px; }
+  .kpi .v{ font-size:1.7rem; font-weight:800; } .kpi .r{ font-size:.73rem; color:var(--suave); }
+  .bars .b{ display:flex; align-items:center; gap:9px; margin:9px 0; font-size:.8rem; }
+  .bars .b .t{ width:96px; flex:0 0 auto; } .bars .b .tr{ flex:1; height:10px; border-radius:999px; background:var(--sup2); overflow:hidden; }
+  .bars .b .tr > i{ display:block; height:100%; } .bars .b .vv{ width:28px; text-align:right; color:var(--suave); }
+
+  .ods{ display:flex; gap:8px; flex-wrap:wrap; }
+  .ods .o{ flex:1; min-width:130px; border-radius:12px; padding:10px; color:#fff; font-size:.78rem; font-weight:600; }
+
+  /* map overlay legend + attribution */
+  .mapinfo{ position:absolute; left:10px; bottom:10px; z-index:900; background:var(--sup); border:1px solid var(--borda);
+            border-radius:10px; padding:8px 10px; font-size:.72rem; color:var(--suave); max-width:60%; }
+  .toasts{ position:absolute; right:12px; top:12px; z-index:950; display:flex; flex-direction:column; gap:8px; max-width:300px; }
+  .toast{ background:var(--card); border:1px solid var(--borda); border-left:4px solid var(--acento); border-radius:10px;
+          padding:10px 12px; font-size:.82rem; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+  .toast b{ display:block; margin-bottom:2px; }
+
+  /* markers */
+  .pin{ display:grid; place-items:center; width:30px;height:30px; border-radius:50% 50% 50% 0; transform:rotate(-45deg);
+        box-shadow:0 2px 6px rgba(0,0,0,.45); border:2px solid #fff; }
+  .pin span{ transform:rotate(45deg); font-size:15px; }
+  .pop h3{ margin:0 0 4px; font-size:.95rem; color:#17212c; } .pop p{ margin:4px 0; font-size:.84rem; color:#223; }
+  .pop .meta{ color:#667; font-size:.74rem; } .pop img{ width:100%; border-radius:8px; margin:6px 0; display:block; }
+  .pop .acoes{ display:flex; gap:6px; margin-top:6px; } .pop .acoes button{ flex:1; padding:6px; border-radius:7px; border:1px solid #ccd; background:#f4f7fb; cursor:pointer; font-size:.76rem; }
+  .pop .grav{ padding:1px 8px; border-radius:999px; color:#fff; font-size:.7rem; font-weight:700; }
+
+  /* modal */
+  .modal{ position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:2000; display:none; align-items:center; justify-content:center; padding:16px; }
+  .modal.on{ display:flex; } .modal .box{ background:var(--sup); border:1px solid var(--borda); border-radius:16px; padding:20px; max-width:380px; width:100%; }
+  .modal h3{ margin:0 0 8px; }
+
+  @media (max-width:760px){
+    .corpo{ flex-direction:column; } nav.abas{ width:100%; flex-direction:row; justify-content:space-around; border-right:none; border-bottom:1px solid var(--borda); order:3; }
+    aside#lateral{ width:100%; max-width:100%; max-height:40vh; order:2; } #mapa{ order:1; min-height:46vh; }
+    .marca small{ display:none; }
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>🧭 RotaLivre — Mapa Colaborativo de Acessibilidade</h1>
-  <p>Reporte barreiras urbanas e pontos de apoio. Escolha um tipo e toque no mapa para registrar a circunstância.</p>
+  <div class="marca"><span class="logo">🧭</span><div>RotaLivre<small>CitizenTech Urbano · navegação acessível</small></div></div>
+  <div class="espaco"></div>
+  <div class="perfil" title="Perfil de mobilidade">
+    <span class="av" id="perfil-av">♿</span>
+    <select id="perfil" class="txt" style="width:auto;padding:0;background:transparent;border:none" aria-label="Perfil de mobilidade">
+      <option value="cadeirante" data-i="♿">Cadeirante</option>
+      <option value="cego" data-i="🦯">Cego / baixa visão</option>
+      <option value="reduzida" data-i="🚶">Mobilidade reduzida</option>
+      <option value="idoso" data-i="🧓">Pessoa idosa</option>
+    </select>
+  </div>
+  <div class="ferramentas">
+    <button class="icbtn" id="t-voz" aria-pressed="false" title="Leitura por voz (TTS)">🔊</button>
+    <button class="icbtn" id="t-contraste" aria-pressed="false" title="Alto contraste">◐</button>
+    <button class="icbtn" id="t-tema" title="Tema claro/escuro">🌙</button>
+    <button class="icbtn" id="t-menos" title="Diminuir fonte">A−</button>
+    <button class="icbtn" id="t-mais" title="Aumentar fonte">A＋</button>
+    <button class="sos" id="t-sos">🆘 SOS</button>
+  </div>
 </header>
 
 <div class="corpo">
-  <aside id="painel" aria-label="Controles do mapa">
-    <h2>Adicionar relato</h2>
-    <div class="cats" id="cats" role="group" aria-label="Tipo de relato"></div>
-    <p class="dica" id="dica">Selecione um tipo acima e <b>toque no mapa</b> no local do relato.</p>
+  <nav class="abas" role="tablist" aria-label="Seções">
+    <button role="tab" aria-selected="true" data-aba="rota"><span class="i">🧭</span>Rota</button>
+    <button role="tab" aria-selected="false" data-aba="reportar"><span class="i">⚠️</span>Reportar</button>
+    <button role="tab" aria-selected="false" data-aba="apoio"><span class="i">🙋</span>Apoio</button>
+    <button role="tab" aria-selected="false" data-aba="painel"><span class="i">📊</span>Painel</button>
+  </nav>
 
-    <h2>Camadas no mapa</h2>
-    <ul class="legenda" id="legenda"></ul>
+  <aside id="lateral">
+    <div class="paineis">
 
-    <div class="acoes">
-      <button class="linha" id="btn-local">📍 Centralizar na minha localização</button>
-      <button class="linha" id="btn-limpar">🗑️ Limpar meus relatos</button>
+      <!-- ROTA -->
+      <section id="aba-rota" class="ativo" role="tabpanel">
+        <h2 class="tit">Rota acessível</h2>
+        <p class="sub">Trajeto ajustado ao seu perfil, evitando barreiras reportadas pela comunidade.</p>
+        <label class="campo" for="origem">Origem</label>
+        <input class="txt" id="origem" list="lugares" placeholder="Ex.: Praça da Sé" value="Praça da Sé">
+        <label class="campo" for="destino">Destino</label>
+        <input class="txt" id="destino" list="lugares" placeholder="Ex.: Av. Paulista (MASP)" value="Av. Paulista (MASP)">
+        <datalist id="lugares"></datalist>
+        <button class="btn" id="btn-rota">Traçar rota acessível</button>
+        <div id="resultado-rota"></div>
+      </section>
+
+      <!-- REPORTAR -->
+      <section id="aba-reportar" role="tabpanel">
+        <h2 class="tit">Reportar no mapa</h2>
+        <p class="sub">Escolha um tipo e toque no mapa para registrar a circunstância.</p>
+        <div class="cats" id="cats" role="group" aria-label="Tipo de relato"></div>
+        <p class="sub" id="dica" style="margin-top:10px">Selecione um tipo e <b>toque no mapa</b>.</p>
+        <h3 class="sec">Camadas</h3>
+        <ul class="legenda" id="legenda"></ul>
+        <button class="btn sec" id="btn-limpar" style="margin-top:14px">🗑️ Limpar meus relatos</button>
+      </section>
+
+      <!-- APOIO -->
+      <section id="aba-apoio" role="tabpanel">
+        <h2 class="tit">Rede de apoio</h2>
+        <p class="sub">Voluntários verificados e postos públicos próximos para acompanhamento presencial.</p>
+        <h3 class="sec">Voluntários por perto</h3>
+        <div id="lista-voluntarios"></div>
+        <h3 class="sec">Postos de apoio</h3>
+        <div id="lista-postos"></div>
+      </section>
+
+      <!-- PAINEL -->
+      <section id="aba-painel" role="tabpanel">
+        <h2 class="tit">Painel de acessibilidade</h2>
+        <p class="sub">Indicadores da malha urbana mapeada (dados de demonstração).</p>
+        <div class="kpis" id="kpis"></div>
+        <h3 class="sec">Barreiras por tipo</h3>
+        <div class="bars" id="bars"></div>
+        <h3 class="sec">Criticidade por região</h3>
+        <div class="bars" id="regioes"></div>
+        <h3 class="sec">Impacto (ODS ONU)</h3>
+        <div class="ods">
+          <div class="o" style="background:#dd1367">ODS 10<br><small>Redução das desigualdades</small></div>
+          <div class="o" style="background:#f99d26">ODS 11<br><small>Cidades sustentáveis</small></div>
+        </div>
+      </section>
+
     </div>
-
-    <p class="rodape">
-      Dados salvos apenas neste navegador (demonstração). Mapa por
-      <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> + Leaflet.<br>
-      <b>RotaLivre · CitizenTech Urbano</b> — GS 2026.2 · FIAP.
-    </p>
   </aside>
-  <div id="mapa" role="application" aria-label="Mapa de acessibilidade urbana"></div>
+
+  <div id="mapa">
+    <div class="toasts" id="toasts"></div>
+    <div class="mapinfo" id="mapinfo">Mapa © OpenStreetMap · Leaflet</div>
+  </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
-  integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzWQzxuSg4DiQUCpauz/EWjgk5TYQqX/kvn9pG1NpYfqg==" crossorigin=""></script>
+<!-- modal genérico -->
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+  <div class="box" id="modal-box"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin=""></script>
 <script>
 (function(){
-  "use strict";
-  var CHAVE = "rotalivre_relatos_v1";
+"use strict";
+var CHAVE="rotalivre_relatos_v2";
 
-  // Tipos de relato (categorias)
-  var TIPOS = {
-    buraco:     { nome:"Buraco / calçada ruim", emoji:"🕳️", cor:"#e53935", obstaculo:true },
-    rampa:      { nome:"Falta de rampa",         emoji:"♿", cor:"#fb8c00", obstaculo:true },
-    tatil:      { nome:"Piso tátil interrompido", emoji:"🟡", cor:"#f9a825", obstaculo:true },
-    obra:       { nome:"Obra / obstrução",        emoji:"🚧", cor:"#8e44ad", obstaculo:true },
-    voluntario: { nome:"Voluntário disponível",   emoji:"🙋", cor:"#2ea6ff", obstaculo:false },
-    posto:      { nome:"Posto de apoio",          emoji:"🏥", cor:"#2e9e5b", obstaculo:false }
-  };
-  var GRAV = { baixa:"#4caf50", media:"#fb8c00", alta:"#e53935" };
+/* ---------- dados base ---------- */
+var LUGARES={
+  "praça da sé":[-23.5503,-46.6339],"av. paulista (masp)":[-23.5614,-46.6558],"parque ibirapuera":[-23.5874,-46.6576],
+  "mercado municipal":[-23.5419,-46.6290],"estação da luz":[-23.5345,-46.6356],"terminal bandeira":[-23.5560,-46.6410],
+  "usp butantã":[-23.5595,-46.7313],"largo da batata (pinheiros)":[-23.5668,-46.6940],"metrô república":[-23.5430,-46.6420],
+  "catedral da sé":[-23.5503,-46.6339],"estação sé":[-23.5500,-46.6340]
+};
+var TIPOS={
+  buraco:{nome:"Buraco / calçada ruim",emoji:"🕳️",cor:"#e5484d",obst:true},
+  rampa:{nome:"Falta de rampa",emoji:"♿",cor:"#fb8c00",obst:true},
+  tatil:{nome:"Piso tátil interrompido",emoji:"🟡",cor:"#f4c020",obst:true},
+  obra:{nome:"Obra / obstrução",emoji:"🚧",cor:"#8b5cf6",obst:true},
+  voluntario:{nome:"Voluntário",emoji:"🙋",cor:"#2ea6ff",obst:false},
+  posto:{nome:"Posto de apoio",emoji:"🏥",cor:"#2e9e5b",obst:false}
+};
+var GRAV={baixa:"#2e9e5b",media:"#fb8c00",alta:"#e5484d"};
+var PERFIS={cadeirante:"♿",cego:"🦯",reduzida:"🚶",idoso:"🧓"};
 
-  var ativo = null; // tipo selecionado para adicionar
+var VOLUNTARIOS=[
+  {nome:"Marina Alves",emoji:"👩",nota:5,dist:"320 m",tag:"Guia-vidente · manhãs",lat:-23.5500,lng:-46.6290},
+  {nome:"Carlos Nunes",emoji:"🧑",nota:4,dist:"1,1 km",tag:"Apoio a cadeirante",lat:-23.5560,lng:-46.6380},
+  {nome:"Dona Zefa",emoji:"👵",nota:5,dist:"800 m",tag:"Comerciante · ponto seguro",lat:-23.5470,lng:-46.6420}
+];
+var POSTOS=[
+  {nome:"CRAS Sé",emoji:"🏥",tag:"Assistência · seg–sex 8h-17h",lat:-23.5540,lng:-46.6320},
+  {nome:"Base Guarda Civil",emoji:"🛡️",tag:"Apoio 24h",lat:-23.5490,lng:-46.6305}
+];
 
-  var mapa = L.map("mapa", { zoomControl:true }).setView([-23.5505, -46.6333], 14);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom:19, attribution:"© OpenStreetMap"
-  }).addTo(mapa);
+/* ---------- mapa ---------- */
+var mapa=L.map("mapa",{zoomControl:true}).setView([-23.5503,-46.6339],15);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(mapa);
+var camadas={}; Object.keys(TIPOS).forEach(function(t){camadas[t]=L.layerGroup().addTo(mapa);});
+var camadaRota=L.layerGroup().addTo(mapa);
 
-  // Uma camada por tipo, para poder ligar/desligar
-  var camadas = {};
-  Object.keys(TIPOS).forEach(function(t){ camadas[t] = L.layerGroup().addTo(mapa); });
+/* ---------- util ---------- */
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function haversine(a,b){var R=6371,toR=function(x){return x*Math.PI/180;};
+  var dLat=toR(b[0]-a[0]),dLng=toR(b[1]-a[1]);
+  var s=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toR(a[0]))*Math.cos(toR(b[0]))*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));}
+function quando(ts){var d=new Date(ts);return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});}
+function iconePin(t){return L.divIcon({className:"",iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-28],
+  html:'<div class="pin" style="background:'+TIPOS[t].cor+'"><span>'+TIPOS[t].emoji+'</span></div>'});}
+function falar(txt){ if(!vozOn||!window.speechSynthesis) return; try{ speechSynthesis.cancel();
+  var u=new SpeechSynthesisUtterance(txt); u.lang="pt-BR"; u.rate=1; speechSynthesis.speak(u);}catch(e){} }
+function toast(titulo,msg){ var el=document.createElement("div"); el.className="toast";
+  el.innerHTML="<b>"+esc(titulo)+"</b>"+esc(msg); document.getElementById("toasts").appendChild(el);
+  setTimeout(function(){el.style.opacity=".0";el.style.transition="opacity .5s";setTimeout(function(){el.remove();},500);},5200); }
 
-  function carregar(){
-    try { return JSON.parse(localStorage.getItem(CHAVE)) || null; } catch(e){ return null; }
-  }
-  function salvar(lista){
-    try { localStorage.setItem(CHAVE, JSON.stringify(lista)); } catch(e){}
-  }
+/* ---------- persistência de relatos ---------- */
+function carregar(){try{return JSON.parse(localStorage.getItem(CHAVE))||null;}catch(e){return null;}}
+function salvar(){try{localStorage.setItem(CHAVE,JSON.stringify(relatos));}catch(e){}}
+function seed(){var n=Date.now();return[
+  {id:"ex1",tipo:"buraco",lat:-23.5515,lng:-46.6360,desc:"Buraco fundo na esquina, sem sinalização.",grav:"alta",autor:"João P.",conf:7,ts:n,foto:true},
+  {id:"ex2",tipo:"rampa",lat:-23.5490,lng:-46.6300,desc:"Calçada sem rebaixamento para cadeirante.",grav:"media",autor:"Marina A.",conf:3,ts:n},
+  {id:"ex3",tipo:"tatil",lat:-23.5533,lng:-46.6395,desc:"Piso tátil interrompido por mesas de bar.",grav:"media",autor:"Luís F.",conf:4,ts:n},
+  {id:"ex4",tipo:"obra",lat:-23.5472,lng:-46.6350,desc:"Obra ocupando toda a calçada por 2 semanas.",grav:"alta",autor:"Zeladoria",conf:11,ts:n,foto:true}
+].concat(
+  VOLUNTARIOS.map(function(v,i){return{id:"vol"+i,tipo:"voluntario",lat:v.lat,lng:v.lng,desc:v.nome+" — "+v.tag,grav:"baixa",autor:v.nome,conf:0,ts:n};}),
+  POSTOS.map(function(p,i){return{id:"pos"+i,tipo:"posto",lat:p.lat,lng:p.lng,desc:p.nome+" — "+p.tag,grav:"baixa",autor:"Prefeitura",conf:0,ts:n};})
+);}
+var relatos=carregar(); if(!relatos){relatos=seed();salvar();}
 
-  var relatos = carregar();
-  if (!relatos){ relatos = exemplos(); salvar(relatos); }
+function popupRelato(r){var t=TIPOS[r.tipo];
+  var grav=t.obst?'<span class="grav" style="background:'+(GRAV[r.grav]||"#888")+'">'+r.grav+'</span> ':'';
+  var foto=r.foto?'<img alt="Foto do local (exemplo)" src="data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'220\' height=\'110\'><rect width=\'220\' height=\'110\' fill=\'#cfd8e3\'/><text x=\'110\' y=\'60\' font-size=\'13\' text-anchor=\'middle\' fill=\'#5a6b7c\'>📷 foto do local (mock)</text></svg>')+'">':'';
+  return '<div class="pop"><h3>'+t.emoji+' '+esc(t.nome)+'</h3>'+(grav?'<p>'+grav+'</p>':'')
+    +foto+'<p>'+(r.desc?esc(r.desc):"<i>Sem descrição</i>")+'</p>'
+    +'<div class="meta">por '+esc(r.autor||"Anônimo")+' · '+quando(r.ts)+(t.obst?' · ✅ '+(r.conf||0)+' confirmações':'')+'</div>'
+    +(t.obst?'<div class="acoes"><button data-conf="'+r.id+'">👍 Confirmar</button><button data-rem="'+r.id+'">🗑️ Remover</button></div>':'<div class="acoes"><button data-rem="'+r.id+'">Remover</button></div>')
+    +'</div>';}
+function desenhar(r){var m=L.marker([r.lat,r.lng],{icon:iconePin(r.tipo),title:TIPOS[r.tipo].nome});
+  m.bindPopup(popupRelato(r)); camadas[r.tipo].addLayer(m);}
+function redesenhar(){Object.keys(camadas).forEach(function(t){camadas[t].clearLayers();});relatos.forEach(desenhar);contagens();painel();}
+mapa.on("popupopen",function(e){var box=e.popup._contentNode;
+  var c=box.querySelector("[data-conf]"); if(c)c.addEventListener("click",function(){var id=c.getAttribute("data-conf");
+    relatos.forEach(function(r){if(r.id===id)r.conf=(r.conf||0)+1;});salvar();mapa.closePopup();redesenhar();toast("Confirmado","Obrigado! Isso aumenta a confiança do relato.");});
+  var x=box.querySelector("[data-rem]"); if(x)x.addEventListener("click",function(){var id=x.getAttribute("data-rem");
+    relatos=relatos.filter(function(r){return r.id!==id;});salvar();mapa.closePopup();redesenhar();});});
 
-  function exemplos(){
-    var agora = Date.now();
-    return [
-      { id:"ex1", tipo:"buraco", lat:-23.5515, lng:-46.6360, desc:"Buraco grande na esquina, sem sinalização.", grav:"alta", ts:agora },
-      { id:"ex2", tipo:"rampa", lat:-23.5490, lng:-46.6300, desc:"Calçada sem rebaixamento para cadeirante.", grav:"media", ts:agora },
-      { id:"ex3", tipo:"tatil", lat:-23.5530, lng:-46.6395, desc:"Piso tátil interrompido por mesa de bar.", grav:"media", ts:agora },
-      { id:"ex4", tipo:"obra", lat:-23.5470, lng:-46.6350, desc:"Obra ocupando toda a calçada.", grav:"alta", ts:agora },
-      { id:"ex5", tipo:"voluntario", lat:-23.5500, lng:-46.6290, desc:"Voluntário verificado, disponível pela manhã.", grav:"baixa", ts:agora },
-      { id:"ex6", tipo:"posto", lat:-23.5540, lng:-46.6320, desc:"Posto de apoio da subprefeitura (CRAS).", grav:"baixa", ts:agora }
-    ];
-  }
+/* ---------- reportar ---------- */
+var ativo=null;
+var catsEl=document.getElementById("cats");
+Object.keys(TIPOS).forEach(function(t){var b=document.createElement("button");
+  b.className="cat";b.type="button";b.setAttribute("aria-pressed","false");
+  b.innerHTML='<span class="bola" style="background:'+TIPOS[t].cor+'"></span><span>'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</span>';
+  b.addEventListener("click",function(){ativo=(ativo===t)?null:t;
+    Array.prototype.forEach.call(catsEl.children,function(c){c.setAttribute("aria-pressed","false");});
+    document.getElementById("dica").innerHTML=ativo?('Toque no mapa para registrar: <b>'+TIPOS[t].nome+'</b>.'):'Selecione um tipo e <b>toque no mapa</b>.';
+    if(ativo)b.setAttribute("aria-pressed","true");});
+  catsEl.appendChild(b);});
+mapa.on("click",function(e){if(ativo)formRelato(e.latlng);});
+function formRelato(latlng){
+  var opts=Object.keys(TIPOS).map(function(t){return '<option value="'+t+'"'+(t===ativo?' selected':'')+'>'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</option>';}).join("");
+  var html='<form class="pop" style="min-width:210px"><label class="campo">Tipo</label><select class="txt" name="tipo">'+opts+'</select>'
+    +'<label class="campo">Gravidade</label><select class="txt" name="grav"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select>'
+    +'<label class="campo">Circunstância</label><textarea class="txt" name="desc" rows="2" placeholder="Ex.: buraco fundo, calçada bloqueada..."></textarea>'
+    +'<label class="campo"><input type="checkbox" name="foto"> 📷 anexar foto (mock)</label>'
+    +'<div class="acoes" style="margin-top:8px"><button type="button" class="cancel">Cancelar</button><button type="submit" style="background:#2ea6ff;color:#fff">Adicionar</button></div></form>';
+  var pop=L.popup({minWidth:230}).setLatLng(latlng).setContent(html).openOn(mapa);
+  var f=pop._contentNode.querySelector("form");
+  f.querySelector(".cancel").addEventListener("click",function(){mapa.closePopup();});
+  f.addEventListener("submit",function(ev){ev.preventDefault();
+    var r={id:"r"+Date.now(),tipo:f.tipo.value,grav:f.grav.value,desc:f.desc.value.trim(),foto:f.foto.checked,
+      autor:"Você",conf:0,lat:latlng.lat,lng:latlng.lng,ts:Date.now()};
+    relatos.push(r);salvar();mapa.closePopup();redesenhar();
+    document.getElementById("chk-"+r.tipo).checked=true;camadas[r.tipo].addTo(mapa);
+    toast("Relato enviado","Obrigado por melhorar o mapa da cidade!");});
+}
 
-  function iconePin(tipo){
-    var t = TIPOS[tipo];
-    return L.divIcon({
-      className:"", iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-28],
-      html:'<div class="pin" style="background:'+t.cor+'"><span>'+t.emoji+'</span></div>'
-    });
-  }
+/* ---------- legenda / contagem ---------- */
+var legEl=document.getElementById("legenda");
+Object.keys(TIPOS).forEach(function(t){var li=document.createElement("li");
+  li.innerHTML='<input type="checkbox" id="chk-'+t+'" checked aria-label="Mostrar '+TIPOS[t].nome+'"><span class="bola" style="background:'+TIPOS[t].cor+'"></span><label for="chk-'+t+'">'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</label><span class="n" id="n-'+t+'">0</span>';
+  legEl.appendChild(li);
+  li.querySelector("input").addEventListener("change",function(e){e.target.checked?camadas[t].addTo(mapa):mapa.removeLayer(camadas[t]);});});
+function contagens(){Object.keys(TIPOS).forEach(function(t){document.getElementById("n-"+t).textContent=relatos.filter(function(r){return r.tipo===t;}).length;});}
+document.getElementById("btn-limpar").addEventListener("click",function(){
+  if(confirm("Apagar todos os relatos deste navegador e recarregar os exemplos?")){relatos=seed();salvar();redesenhar();}});
 
-  function quando(ts){
-    var d = new Date(ts);
-    return d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-  }
+/* ---------- rota acessível (mock) ---------- */
+var datalist=document.getElementById("lugares");
+Object.keys(LUGARES).forEach(function(k){var o=document.createElement("option");
+  o.value=k.replace(/\b\w/g,function(c){return c.toUpperCase();});datalist.appendChild(o);});
+function coord(nome){var k=(nome||"").trim().toLowerCase();return LUGARES[k]||null;}
+document.getElementById("btn-rota").addEventListener("click",tracarRota);
+function tracarRota(){
+  var a=coord(document.getElementById("origem").value),b=coord(document.getElementById("destino").value);
+  var res=document.getElementById("resultado-rota");
+  if(!a||!b){res.innerHTML='<div class="card" style="border-color:var(--alerta)">Escolha origem e destino da lista de lugares sugeridos.</div>';return;}
+  camadaRota.clearLayers();
+  // waypoints mock: origem -> ponto intermediário deslocado -> destino
+  var mid=[(a[0]+b[0])/2+0.0012,(a[1]+b[1])/2-0.0016];
+  var pts=[a,mid,b];
+  L.polyline(pts,{color:"#2ea6ff",weight:6,opacity:.85}).addTo(camadaRota);
+  L.marker(a,{icon:iconeLetra("A","#2e9e5b")}).addTo(camadaRota);
+  L.marker(b,{icon:iconeLetra("B","#e5484d")}).addTo(camadaRota);
+  mapa.fitBounds(L.latLngBounds(pts).pad(0.3));
+  var dist=haversine(a,mid)+haversine(mid,b); // km
+  var vel={cadeirante:3.6,cego:3.2,reduzida:3.8,idoso:3.4}[perfil]||4.2;
+  var min=Math.round(dist/vel*60);
+  var evita=relatos.filter(function(r){return TIPOS[r.tipo].obst;}).slice(0,3);
+  var base={cadeirante:82,cego:78,reduzida:88,idoso:85}[perfil]||90;
+  var score=Math.max(60,Math.min(97,base-evita.length));
+  var cor=score>=85?"#2e9e5b":score>=70?"#fb8c00":"#e5484d";
+  var passos=gerarPassos(dist,evita);
+  res.innerHTML=
+    '<div class="card"><div class="linha" style="justify-content:space-between">'
+      +'<div><div class="mut" style="font-size:.74rem">DISTÂNCIA</div><div class="fw" style="font-size:1.1rem">'+dist.toFixed(2).replace(".",",")+' km</div></div>'
+      +'<div><div class="mut" style="font-size:.74rem">TEMPO EST.</div><div class="fw" style="font-size:1.1rem">'+min+' min</div></div>'
+      +'<div><div class="mut" style="font-size:.74rem">PASSOS</div><div class="fw" style="font-size:1.1rem">'+passos.length+'</div></div></div>'
+      +'<h3 class="sec" style="margin:12px 0 6px">Acessibilidade da rota</h3>'
+      +'<div class="score"><div class="num" style="color:'+cor+'">'+score+'%</div><div style="flex:1"><div class="barra"><i style="width:'+score+'%;background:'+cor+'"></i></div>'
+      +'<div class="mut" style="font-size:.76rem;margin-top:5px">Perfil: '+PERFIS[perfil]+' '+nomePerfil()+' · evita '+evita.length+' barreira(s) reportada(s)</div></div></div>'
+      +'<button class="btn" id="btn-ouvir" style="margin-top:12px">🔊 Ouvir instruções</button>'
+      +'<ol class="passos">'+passos.map(function(p){return '<li><span class="ic">'+p.i+'</span><div><div>'+esc(p.t)+'</div><small>'+esc(p.s)+'</small></div></li>';}).join("")+'</ol>'
+    +'</div>';
+  document.getElementById("btn-ouvir").addEventListener("click",function(){falar("Rota de "+nomePerfil()+". "+passos.map(function(p){return p.t;}).join(". "));});
+  toast("Rota traçada",dist.toFixed(2).replace(".",",")+" km · "+min+" min · acessibilidade "+score+"%");
+  falar("Rota traçada. "+dist.toFixed(1).replace(".",",")+" quilômetros, cerca de "+min+" minutos.");
+}
+function iconeLetra(l,c){return L.divIcon({className:"",iconSize:[28,28],iconAnchor:[14,28],html:'<div class="pin" style="background:'+c+'"><span>'+l+'</span></div>'});}
+function gerarPassos(dist,evita){
+  var p=[{i:"🚩",t:"Saia da origem pela calçada à direita",s:"Piso regular, com guia tátil"},
+         {i:"♿",t:"Siga reto por ~"+Math.round(dist*350)+" m",s:"Calçada larga, sem degraus"}];
+  if(evita[0])p.push({i:"⚠️",t:"Atenção: "+TIPOS[evita[0].tipo].nome.toLowerCase()+" à frente — rota desviada",s:"Desvio de ~40 m pela via paralela"});
+  p.push({i:"↩️",t:"Vire à esquerda no cruzamento com rampa rebaixada",s:"Semáforo com sinal sonoro"});
+  if(evita[1])p.push({i:"🚧",t:"Evitando "+TIPOS[evita[1].tipo].nome.toLowerCase()+" reportado",s:"Trecho com maior fluxo e iluminação"});
+  p.push({i:"🏁",t:"Chegue ao destino",s:"Entrada acessível pela porta principal"});
+  return p;
+}
+function nomePerfil(){return document.getElementById("perfil").selectedOptions[0].text;}
 
-  function conteudoPopup(r){
-    var t = TIPOS[r.tipo];
-    var grav = t.obstaculo ? '<span class="grav" style="background:'+(GRAV[r.grav]||"#888")+'">'+(r.grav||"—")+'</span>' : '';
-    return '<div class="pop">'
-      + '<h3>'+t.emoji+' '+t.nome+'</h3>'
-      + (grav ? '<div>Gravidade: '+grav+'</div>' : '')
-      + '<p>'+(r.desc ? escapar(r.desc) : "<i>Sem descrição</i>")+'</p>'
-      + '<div class="meta">Registrado em '+quando(r.ts)+'</div>'
-      + '<button data-remover="'+r.id+'">Remover</button>'
-      + '</div>';
-  }
+/* ---------- apoio ---------- */
+function estrelas(n){return '<span class="estrelas">'+("★".repeat(n))+("☆".repeat(5-n))+'</span>';}
+function renderApoio(){
+  document.getElementById("lista-voluntarios").innerHTML=VOLUNTARIOS.map(function(v,i){
+    return '<div class="card"><div class="pessoa"><div class="av">'+v.emoji+'</div><div style="flex:1"><div class="nome">'+esc(v.nome)+' '+estrelas(v.nota)+'</div><div class="meta">'+esc(v.tag)+' · '+v.dist+'</div></div></div>'
+      +'<button class="btn" data-vol="'+i+'" style="margin-top:10px">🤝 Solicitar acompanhamento</button></div>';}).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("[data-vol]"),function(b){b.addEventListener("click",function(){solicitar(VOLUNTARIOS[b.getAttribute("data-vol")]);});});
+  document.getElementById("lista-postos").innerHTML=POSTOS.map(function(p){
+    return '<div class="card"><div class="pessoa"><div class="av">'+p.emoji+'</div><div><div class="nome">'+esc(p.nome)+'</div><div class="meta">'+esc(p.tag)+'</div></div></div></div>';}).join("");
+}
+function solicitar(v){abrirModal('<h3>🤝 Solicitar '+esc(v.nome)+'</h3><p class="sub">Um pedido de acompanhamento seguro será enviado (demonstração). '+esc(v.nome)+' está a '+v.dist+'.</p>'
+  +'<button class="btn ok" id="m-confirmar">Confirmar pedido</button><button class="btn sec" id="m-cancel" style="margin-top:8px">Cancelar</button>');
+  document.getElementById("m-cancel").addEventListener("click",fecharModal);
+  document.getElementById("m-confirmar").addEventListener("click",function(){fecharModal();
+    toast("Pedido enviado","Aguardando "+v.nome+" aceitar o acompanhamento...");
+    setTimeout(function(){toast("Voluntário a caminho",v.nome+" aceitou e está indo ao seu encontro. Chegada em ~6 min.");falar(v.nome+" aceitou e está a caminho.");},2600);});
+}
 
-  function escapar(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+/* ---------- painel ---------- */
+function painel(){
+  var obst=relatos.filter(function(r){return TIPOS[r.tipo].obst;});
+  var vols=relatos.filter(function(r){return r.tipo==="voluntario";}).length;
+  var conf=obst.reduce(function(s,r){return s+(r.conf||0);},0);
+  document.getElementById("kpis").innerHTML=
+    kpi(obst.length,"Barreiras mapeadas")+kpi(conf,"Confirmações da comunidade")
+    +kpi(vols,"Voluntários ativos")+kpi((obst.filter(function(r){return r.grav==="alta";}).length),"Pontos críticos (alta)");
+  var tipos=["buraco","rampa","tatil","obra"],max=Math.max(1,Math.max.apply(null,tipos.map(function(t){return relatos.filter(function(r){return r.tipo===t;}).length;})));
+  document.getElementById("bars").innerHTML=tipos.map(function(t){var n=relatos.filter(function(r){return r.tipo===t;}).length;
+    return bar(TIPOS[t].emoji+" "+TIPOS[t].nome,n,max,TIPOS[t].cor);}).join("");
+  var reg=[["Centro",8],["Zona Sul",5],["Zona Leste",6],["Zona Oeste",3]],mx=Math.max.apply(null,reg.map(function(r){return r[1];}));
+  document.getElementById("regioes").innerHTML=reg.map(function(r){return bar(r[0],r[1],mx,"#2ea6ff");}).join("");
+}
+function kpi(v,r){return '<div class="kpi"><div class="v">'+v+'</div><div class="r">'+r+'</div></div>';}
+function bar(t,n,max,cor){return '<div class="b"><div class="t">'+t+'</div><div class="tr"><i style="width:'+Math.round(n/max*100)+'%;background:'+cor+'"></i></div><div class="vv">'+n+'</div></div>';}
 
-  function desenhar(r){
-    var m = L.marker([r.lat, r.lng], { icon:iconePin(r.tipo), keyboard:true, title:TIPOS[r.tipo].nome });
-    m.bindPopup(conteudoPopup(r));
-    m._relatoId = r.id;
-    camadas[r.tipo].addLayer(m);
-  }
+/* ---------- abas ---------- */
+Array.prototype.forEach.call(document.querySelectorAll('[role="tab"]'),function(t){t.addEventListener("click",function(){
+  document.querySelectorAll('[role="tab"]').forEach(function(x){x.setAttribute("aria-selected","false");});
+  t.setAttribute("aria-selected","true");
+  document.querySelectorAll(".paineis > section").forEach(function(s){s.classList.remove("ativo");});
+  document.getElementById("aba-"+t.getAttribute("data-aba")).classList.add("ativo");
+  setTimeout(function(){mapa.invalidateSize();},60);});});
 
-  function redesenhar(){
-    Object.keys(camadas).forEach(function(t){ camadas[t].clearLayers(); });
-    relatos.forEach(desenhar);
-    atualizarContagens();
-  }
+/* ---------- perfil + acessibilidade ---------- */
+var perfil="cadeirante",vozOn=false,escala=1;
+document.getElementById("perfil").addEventListener("change",function(e){perfil=e.target.value;
+  document.getElementById("perfil-av").textContent=PERFIS[perfil];
+  toast("Perfil alterado","Rotas agora priorizam: "+nomePerfil());});
+document.getElementById("t-voz").addEventListener("click",function(){vozOn=!vozOn;this.setAttribute("aria-pressed",vozOn);
+  if(vozOn)falar("Leitura por voz ativada."); else if(window.speechSynthesis)speechSynthesis.cancel();});
+document.getElementById("t-contraste").addEventListener("click",function(){var on=document.documentElement.getAttribute("data-contraste")==="alto";
+  document.documentElement.setAttribute("data-contraste",on?"":"alto");this.setAttribute("aria-pressed",!on);});
+document.getElementById("t-tema").addEventListener("click",function(){var c=document.documentElement.getAttribute("data-tema")==="claro";
+  document.documentElement.setAttribute("data-tema",c?"":"claro");this.textContent=c?"🌙":"☀️";});
+document.getElementById("t-mais").addEventListener("click",function(){escala=Math.min(1.5,escala+0.1);document.documentElement.style.setProperty("--escala",escala);});
+document.getElementById("t-menos").addEventListener("click",function(){escala=Math.max(0.85,escala-0.1);document.documentElement.style.setProperty("--escala",escala);});
+document.getElementById("t-sos").addEventListener("click",function(){abrirModal('<h3>🆘 Emergência</h3><p class="sub">Isto enviaria sua localização ao posto público mais próximo e aos seus contatos de confiança (demonstração).</p>'
+  +'<button class="btn perigo" id="m-sos">Acionar SOS agora</button><button class="btn sec" id="m-cancel" style="margin-top:8px">Cancelar</button>');
+  document.getElementById("m-cancel").addEventListener("click",fecharModal);
+  document.getElementById("m-sos").addEventListener("click",function(){fecharModal();toast("SOS acionado","Posto Base Guarda Civil notificado. Mantenha a calma, ajuda a caminho.");falar("Emergência acionada. Ajuda a caminho.");});});
 
-  // Remover via botão no popup
-  mapa.on("popupopen", function(e){
-    var btn = e.popup._contentNode.querySelector("[data-remover]");
-    if (btn) btn.addEventListener("click", function(){
-      var id = btn.getAttribute("data-remover");
-      relatos = relatos.filter(function(r){ return r.id !== id; });
-      salvar(relatos); mapa.closePopup(); redesenhar();
-    });
-  });
+/* ---------- modal ---------- */
+function abrirModal(html){document.getElementById("modal-box").innerHTML=html;document.getElementById("modal").classList.add("on");}
+function fecharModal(){document.getElementById("modal").classList.remove("on");}
+document.getElementById("modal").addEventListener("click",function(e){if(e.target===this)fecharModal();});
 
-  // Adicionar: clicar no mapa com um tipo ativo abre um formulário
-  mapa.on("click", function(e){
-    if (!ativo) return;
-    abrirForm(e.latlng);
-  });
-
-  function abrirForm(latlng){
-    var opts = Object.keys(TIPOS).map(function(t){
-      return '<option value="'+t+'"'+(t===ativo?' selected':'')+'>'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</option>';
-    }).join("");
-    var html = '<form class="form-relato">'
-      + '<label>Tipo</label><select name="tipo">'+opts+'</select>'
-      + '<label>Gravidade</label><select name="grav"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select>'
-      + '<label>Circunstância</label><textarea name="desc" placeholder="Ex.: buraco fundo, calçada bloqueada por carro..."></textarea>'
-      + '<div class="btns"><button type="button" class="cancel">Cancelar</button><button type="submit" class="ok">Adicionar</button></div>'
-      + '</form>';
-    var pop = L.popup({ minWidth:220 }).setLatLng(latlng).setContent(html).openOn(mapa);
-    var form = pop._contentNode.querySelector("form");
-    form.querySelector(".cancel").addEventListener("click", function(){ mapa.closePopup(); });
-    form.addEventListener("submit", function(ev){
-      ev.preventDefault();
-      var r = {
-        id: "r"+Date.now()+Math.random().toString(16).slice(2,6),
-        tipo: form.tipo.value, grav: form.grav.value,
-        desc: form.desc.value.trim(), lat:latlng.lat, lng:latlng.lng, ts:Date.now()
-      };
-      relatos.push(r); salvar(relatos); mapa.closePopup(); redesenhar();
-      camadas[r.tipo].addTo(mapa); // garante camada visível
-      document.getElementById("chk-"+r.tipo).checked = true;
-    });
-  }
-
-  // --- Painel: botões de tipo ---
-  var catsEl = document.getElementById("cats");
-  Object.keys(TIPOS).forEach(function(t){
-    var b = document.createElement("button");
-    b.className = "cat"; b.type = "button"; b.setAttribute("aria-pressed","false");
-    b.innerHTML = '<span class="bola" style="background:'+TIPOS[t].cor+'"></span><span>'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</span>';
-    b.addEventListener("click", function(){
-      ativo = (ativo === t) ? null : t;
-      Array.prototype.forEach.call(catsEl.children, function(c){ c.setAttribute("aria-pressed","false"); });
-      if (ativo){ b.setAttribute("aria-pressed","true");
-        document.getElementById("dica").innerHTML = 'Toque no mapa para registrar: <b>'+TIPOS[t].nome+'</b>.';
-      } else {
-        document.getElementById("dica").innerHTML = 'Selecione um tipo acima e <b>toque no mapa</b> no local do relato.';
-      }
-    });
-    catsEl.appendChild(b);
-  });
-
-  // --- Painel: legenda com contagem + toggle de camada ---
-  var legEl = document.getElementById("legenda");
-  Object.keys(TIPOS).forEach(function(t){
-    var li = document.createElement("li");
-    li.innerHTML = '<input type="checkbox" id="chk-'+t+'" checked aria-label="Mostrar '+TIPOS[t].nome+'">'
-      + '<span class="bola" style="background:'+TIPOS[t].cor+'"></span>'
-      + '<label for="chk-'+t+'">'+TIPOS[t].emoji+' '+TIPOS[t].nome+'</label>'
-      + '<span class="n" id="n-'+t+'">0</span>';
-    legEl.appendChild(li);
-    li.querySelector("input").addEventListener("change", function(e){
-      if (e.target.checked) camadas[t].addTo(mapa); else mapa.removeLayer(camadas[t]);
-    });
-  });
-
-  function atualizarContagens(){
-    Object.keys(TIPOS).forEach(function(t){
-      var n = relatos.filter(function(r){ return r.tipo===t; }).length;
-      document.getElementById("n-"+t).textContent = n;
-    });
-  }
-
-  document.getElementById("btn-local").addEventListener("click", function(){
-    if (!navigator.geolocation){ alert("Geolocalização não suportada."); return; }
-    navigator.geolocation.getCurrentPosition(function(p){
-      mapa.setView([p.coords.latitude, p.coords.longitude], 16);
-    }, function(){ alert("Não foi possível obter sua localização."); });
-  });
-
-  document.getElementById("btn-limpar").addEventListener("click", function(){
-    if (confirm("Apagar todos os relatos salvos neste navegador?")){
-      relatos = []; salvar(relatos); redesenhar();
-    }
-  });
-
-  redesenhar();
+/* ---------- init ---------- */
+renderApoio();redesenhar();
+toast("Boas-vindas ao RotaLivre","Trace uma rota acessível ou toque no mapa para reportar uma barreira.");
 })();
 </script>
 </body>
